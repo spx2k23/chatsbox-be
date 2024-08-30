@@ -20,6 +20,14 @@ export const resolvers = {
           organization: null,
         };
       }
+      if (user.isApproved === false) {
+        return {
+          success: false,
+          message: 'User not approved by admin',
+          token: null,
+          organization: null,
+        };
+      }
       const isMatch = await bcrypt.compare(Password, user.Password);
       if (!isMatch) {
         return {
@@ -38,9 +46,15 @@ export const resolvers = {
       };
     },
 
-    // getChats: (_, { userId }) => {
-    //   return Chat.find({ members: userId });
-    // },
+    getOrganizations: async () => {
+      try {
+        const organizations = await Organization.find();
+        return organizations;
+      } catch (error) {
+        console.error('Error fetching organizations:', error);
+        throw new Error('Failed to fetch organizations');
+      }
+    },
 
   },
 
@@ -85,15 +99,32 @@ export const resolvers = {
       }
     },
 
-    register: async (_, { username, email, password }) => {
-      const hashedPassword = await bcrypt.hash(password, 10);
-      const user = new User({ username, email, password: hashedPassword });
-      return user.save();
+    register: async (_, { Organization, Name, Email, MobileNumber, Password, ProfilePicture }) => {
+      try {
+        const hashedPassword = await bcrypt.hash(Password, 10);
+        const user = new User({
+          Name,
+          Email,
+          MobileNumber,
+          Password: hashedPassword,
+          ProfilePicture,
+          Organization,
+          SuperAdmin: false,
+          isApproved: false,
+        });
+        await user.save();
+        return {
+          success: true,
+          message: 'User created successfully and send request to admin',
+        };
+      } catch (error) {
+        console.error('Error in register:', error);
+        return {
+          success: false,
+          message: 'Failed to create user',
+        };
+      }
     },
-    // createChat: (_, { name, members, isGroup }) => {
-    //   const chat = new Chat({ name, members, isGroup });
-    //   return chat.save();
-    // },
 
     sendMessage: async (_, { chatId, senderId, content }, { pubsub }) => {
       const message = new Message({ chat: chatId, sender: senderId, content });

@@ -59,6 +59,7 @@ export const typeDefs = gql`
 
   type Query {
     login(Email: String!, Password: String!): AuthResponse!
+    getOrganizations: [Organization!]!
   }
 
   type Mutation {
@@ -70,7 +71,14 @@ export const typeDefs = gql`
       ProfilePicture: String!,
       OrganizationName: String!
     ): AuthPayload!
-    register(Name: String!, email: String!, password: String!): User!
+    register(
+      Name: String!,
+      Email: String!,
+      MobileNumber: String!,
+      Password: String!,
+      ProfilePicture: String!,
+      Organization: String!
+    ): AuthPayload!
     sendMessage(chatId: ID!, senderId: ID!, content: String!): Message!
   }
 
@@ -78,6 +86,3 @@ export const typeDefs = gql`
     messageAdded(chatId: ID!): Message!
   }
 `;
-
-// getChats(userId: ID!): [Chat!]
-// createChat(name: String!, members: [ID!]!, isGroup: Boolean!): Chat!
