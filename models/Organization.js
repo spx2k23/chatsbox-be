@@ -6,10 +6,15 @@ const OrganizationSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
+    OrganizationCode:{
+        type: String,
+        required: true,
+        unique: true
+    }
 },
 
     { timestamps: true }
 
 );
 
-export const Organization = mongoose.model('Organization', OrganizationSchema);
+export const OrganizationModel = mongoose.model('Organization', OrganizationSchema);

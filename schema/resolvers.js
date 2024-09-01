@@ -1,7 +1,5 @@
 import { User } from '../models/User.js';
-// import { Chat } from '../models/Chat.js';
-import { Message } from '../models/Message.js';
-import { Organization } from '../models/Organization.js';
+import { OrganizationModel } from '../models/Organization.js';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 
@@ -46,13 +44,13 @@ export const resolvers = {
       };
     },
 
-    getOrganizations: async () => {
+    getUnapprovedUsers: async (_, { organizationId }) => {
       try {
-        const organizations = await Organization.find();
-        return organizations;
+        const users = await User.find({ isApproved: false, Organization: organizationId });
+        return users;
       } catch (error) {
-        console.error('Error fetching organizations:', error);
-        throw new Error('Failed to fetch organizations');
+        console.error('Error fetching unapproved users:', error);
+        throw new Error('Failed to fetch unapproved users');
       }
     },
 
@@ -62,17 +60,17 @@ export const resolvers = {
 
     registerOrganization: async (
       _,
-      { OrganizationName, Name, Email, MobileNumber, Password, ProfilePicture }
+      { OrganizationName, OrganizationCode, Name, Email, MobileNumber, Password, ProfilePicture }
     ) => {
       try {
-        let organization = await Organization.findOne({ OrganizationName });
+        let organization = await OrganizationModel.findOne({ OrganizationName });
         if (organization) {
           return {
             success: false,
             message: 'Organization already exists',
           };
         }
-        organization = new Organization({ OrganizationName });
+        organization = new OrganizationModel({ OrganizationName, OrganizationCode });
         await organization.save();
         const hashedPassword = await bcrypt.hash(Password, 10);
         const user = new User({
@@ -99,8 +97,10 @@ export const resolvers = {
       }
     },
 
-    register: async (_, { Organization, Name, Email, MobileNumber, Password, ProfilePicture }) => {
+    register: async (_, { OrganizationCode, Name, Email, MobileNumber, Password, ProfilePicture }) => {
       try {
+        let organizationSearch = await OrganizationModel.findOne({ OrganizationCode });
+        const organizationCode = organizationSearch._id;
         const hashedPassword = await bcrypt.hash(Password, 10);
         const user = new User({
           Name,
@@ -108,7 +108,7 @@ export const resolvers = {
           MobileNumber,
           Password: hashedPassword,
           ProfilePicture,
-          Organization,
+          Organization: organizationCode,
           SuperAdmin: false,
           isApproved: false,
         });
@@ -122,6 +122,47 @@ export const resolvers = {
         return {
           success: false,
           message: 'Failed to create user',
+        };
+      }
+    },
+
+    approveUser: async (_, { userId }) => {
+      try {
+        const user = await User.findById(userId);
+        if (!user) {
+          throw new Error('User not found');
+        }
+        user.isApproved = true;
+        await user.save();
+        return {
+          success: true,
+          message: 'User approved successfully',
+        };
+      } catch (error) {
+        console.error('Error approving user:', error);
+        return {
+          success: false,
+          message: 'Failed to approve user',
+        };
+      }
+    },
+
+    rejectUser: async (_, { userId }) => {
+      try {
+        const user = await User.findById(userId);
+        if (!user) {
+          throw new Error('User not found');
+        }
+        await user.remove();
+        return {
+          success: true,
+          message: 'User rejected and deleted successfully',
+        };
+      } catch (error) {
+        console.error('Error rejecting user:', error);
+        return {
+          success: false,
+          message: 'Failed to reject user',
         };
       }
     },

@@ -4,6 +4,7 @@ export const typeDefs = gql`
   type Organization {
     id: ID!
     OrganizationName: String!
+    OrganizationCode: String!
   }
 
   type User {
@@ -57,9 +58,14 @@ export const typeDefs = gql`
     organization: String
   }
 
+  type ApproveResponse {
+    success: Boolean!
+    message: String!
+  }
+
   type Query {
     login(Email: String!, Password: String!): AuthResponse!
-    getOrganizations: [Organization!]!
+    getUnapprovedUsers(organizationId: ID!): [User!]!
   }
 
   type Mutation {
@@ -70,6 +76,7 @@ export const typeDefs = gql`
       Password: String!,
       ProfilePicture: String!,
       OrganizationName: String!
+      OrganizationCode: String!
     ): AuthPayload!
     register(
       Name: String!,
@@ -77,9 +84,11 @@ export const typeDefs = gql`
       MobileNumber: String!,
       Password: String!,
       ProfilePicture: String!,
-      Organization: String!
+      OrganizationCode: String!
     ): AuthPayload!
     sendMessage(chatId: ID!, senderId: ID!, content: String!): Message!
+    approveUser(userId: ID!): ApproveResponse!
+    rejectUser(userId: ID!): ApproveResponse!
   }
 
   type Subscription {
