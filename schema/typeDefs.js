@@ -20,6 +20,9 @@ export const typeDefs = gql`
     FriendRequestReceived: [User!]!
     Friends: [User!]!
     isApproved: Boolean!
+    isFriend: Boolean
+    isRequestSent: Boolean
+    isRequestReceived: Boolean
   }
 
   type Message {
@@ -46,7 +49,7 @@ export const typeDefs = gql`
     CreatedAt: String!
   }
 
-  type AuthPayload {
+  type MutationResponse {
     success: Boolean!
     message: String!
   }
@@ -58,14 +61,17 @@ export const typeDefs = gql`
     organization: String
   }
 
-  type ApproveResponse {
-    success: Boolean!
-    message: String!
-  }
+  type FriendRequestPayload {
+    senderId: ID!
+    receiverId: ID!
+    sender: User!
+    receiver: User!
+}
 
   type Query {
     login(Email: String!, Password: String!): AuthResponse!
-    getUnapprovedUsers(organizationId: ID!): [User!]!
+    getUnapprovedUsers(organizationId: ID!): [User]
+    getUsersInOrganization(organizationId: ID!): [User!]!
   }
 
   type Mutation {
@@ -77,7 +83,7 @@ export const typeDefs = gql`
       ProfilePicture: String!,
       OrganizationName: String!
       OrganizationCode: String!
-    ): AuthPayload!
+    ): MutationResponse!
     register(
       Name: String!,
       Email: String!,
@@ -85,13 +91,15 @@ export const typeDefs = gql`
       Password: String!,
       ProfilePicture: String!,
       OrganizationCode: String!
-    ): AuthPayload!
+    ): MutationResponse!
     sendMessage(chatId: ID!, senderId: ID!, content: String!): Message!
-    approveUser(userId: ID!): ApproveResponse!
-    rejectUser(userId: ID!): ApproveResponse!
+    approveUser(userId: ID!): MutationResponse!
+    rejectUser(userId: ID!): MutationResponse!
+    sendFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
   }
 
   type Subscription {
     messageAdded(chatId: ID!): Message!
+    friendRequestSent(receiverId: ID!): FriendRequestPayload!
   }
 `;

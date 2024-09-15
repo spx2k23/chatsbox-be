@@ -11,8 +11,11 @@ import * as dotenv from 'dotenv';
 import { typeDefs } from "./schema/typeDefs.js";
 import { resolvers } from "./schema/resolvers.js";
 import { mongoUrl } from "./Config/Config.js";
+import jwt from 'jsonwebtoken';
 
-const PORT = process.env.PORT;
+dotenv.config();
+
+const PORT = process.env.PORT || 5000;
 
 const app = express();
 const pubsub = new PubSub();
@@ -36,17 +39,20 @@ const databaseConnetion = () => {
 }
 
 const context = ({ req }) => {
-  const token = req.headers.authorization || '';
+  const token = req.headers.authorization?.split(' ')[1] || '';
 
   let user = null;
   if (token) {
     try {
       user = jwt.verify(token, 'secretkey');
     } catch (e) {
-      console.error('Authentication error:', e);
-    }
+      if (e.name === 'TokenExpiredError') {
+        throw new Error("Token has expired, please log in again.");
+      }
+      throw new Error("Invalid token, authentication required.");
+    }  
   }
-  return { user, pubsub };
+  return { pubsub, user };
 };
 
 async function startServer() {

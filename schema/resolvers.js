@@ -1,15 +1,18 @@
-import { User } from '../models/User.js';
+import { UserModel } from '../models/User.js';
 import { OrganizationModel } from '../models/Organization.js';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { PubSub } from 'graphql-subscriptions';
 
-const MESSAGE_ADDED = 'MESSAGE_ADDED';
+const pubsub = new PubSub();
+
+const FRIEND_REQUEST_SENT = 'FRIEND_REQUEST_SENT';
 
 export const resolvers = {
   Query: {
 
     login: async (_, { Email, Password }) => {
-      const user = await User.findOne({ Email });
+      const user = await UserModel.findOne({ Email });
       if (!user) {
         return {
           success: false,
@@ -46,13 +49,48 @@ export const resolvers = {
 
     getUnapprovedUsers: async (_, { organizationId }) => {
       try {
-        const users = await User.find({ isApproved: false, Organization: organizationId });
+        const users = await UserModel.find({ isApproved: false, Organization: organizationId });
         return users;
+        
       } catch (error) {
         console.error('Error fetching unapproved users:', error);
         throw new Error('Failed to fetch unapproved users');
       }
     },
+
+    getUsersInOrganization: async (_, { organizationId }, { user }) => {
+      try {
+        if (!user) {
+          throw new Error('Missing required parameters');
+        }
+        const userId = user.id;
+        
+        const users = await UserModel.find({
+          Organization: organizationId,
+          isApproved: true,
+          _id: { $ne: userId },
+        });
+    
+        return users.map((otherUser) => {
+          const isFriend = otherUser.Friends.some(friend => friend.equals(userId));
+          const isRequestSent = otherUser.FriendRequestReceived.some(request => request.equals(userId));
+          const isRequestReceived = otherUser.FriendRequestSend.some(request => request.equals(userId));
+    
+          return {
+            id: otherUser._id.toString(),
+            Name: otherUser.Name,
+            Email: otherUser.Email,
+            ProfilePicture: otherUser.ProfilePicture,
+            isFriend,
+            isRequestSent,
+            isRequestReceived,
+          };
+        });
+      } catch (error) {
+        console.error('Error fetching users:', error);
+        throw new Error('Failed to fetch users');
+      }
+    },    
 
   },
 
@@ -73,7 +111,7 @@ export const resolvers = {
         organization = new OrganizationModel({ OrganizationName, OrganizationCode });
         await organization.save();
         const hashedPassword = await bcrypt.hash(Password, 10);
-        const user = new User({
+        const user = new UserModel({
           Name,
           Email,
           MobileNumber,
@@ -102,7 +140,7 @@ export const resolvers = {
         let organizationSearch = await OrganizationModel.findOne({ OrganizationCode });
         const organizationCode = organizationSearch._id;
         const hashedPassword = await bcrypt.hash(Password, 10);
-        const user = new User({
+        const user = new UserModel({
           Name,
           Email,
           MobileNumber,
@@ -128,7 +166,7 @@ export const resolvers = {
 
     approveUser: async (_, { userId }) => {
       try {
-        const user = await User.findById(userId);
+        const user = await UserModel.findById(userId);
         if (!user) {
           throw new Error('User not found');
         }
@@ -149,11 +187,11 @@ export const resolvers = {
 
     rejectUser: async (_, { userId }) => {
       try {
-        const user = await User.findById(userId);
+        const user = await UserModel.findById(userId);
         if (!user) {
           throw new Error('User not found');
         }
-        await user.remove();
+        await user.deleteOne();
         return {
           success: true,
           message: 'User rejected and deleted successfully',
@@ -167,20 +205,44 @@ export const resolvers = {
       }
     },
 
-    sendMessage: async (_, { chatId, senderId, content }, { pubsub }) => {
-      const message = new Message({ chat: chatId, sender: senderId, content });
-      const savedMessage = await message.save();
+    sendFriendRequest: async (_, { senderId, receiverId }) => {
+      try {
+        const sender = await UserModel.findById(senderId);
+        const receiver = await UserModel.findById(receiverId);
 
-      pubsub.publish(MESSAGE_ADDED, { messageAdded: savedMessage });
+        if (!sender || !receiver) {
+          return { success: false, message: 'User not found' };
+        }
 
-      return savedMessage;
+        if (receiver.FriendRequestReceived.includes(senderId)) {
+          return { success: false, message: 'Friend request already sent' };
+        }
+
+        receiver.FriendRequestReceived.push(senderId);
+        sender.FriendRequestSend.push(receiverId);
+
+        await receiver.save();
+        await sender.save();
+
+        pubsub.publish(FRIEND_REQUEST_SENT, { friendRequestSent: { senderId, receiverId, sender, receiver } });
+
+        return { success: true, message: 'Friend request sent successfully' };
+      } catch (error) {
+        console.error('Error sending friend request:', error);
+        return { success: false, message: 'Failed to send friend request' };
+      }
     },
 
   },
 
   Subscription: {
-    messageAdded: {
-      subscribe: (_, { chatId }, { pubsub }) => pubsub.asyncIterator(MESSAGE_ADDED),
+    friendRequestSent: {
+      subscribe: (_, { receiverId }) => pubsub.asyncIterator([FRIEND_REQUEST_SENT]),
+      resolve: (payload, args) => {
+        return payload.friendRequestSent.receiverId === args.receiverId
+          ? payload.friendRequestSent
+          : null;
+      },
     },
   },
 };
