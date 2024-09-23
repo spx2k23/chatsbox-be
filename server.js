@@ -38,21 +38,38 @@ const databaseConnetion = () => {
   }
 }
 
-const context = ({ req }) => {
-  const token = req.headers.authorization?.split(' ')[1] || '';
+const context = ({ req, connection }) => {
+  if (connection) {
+    const token = connection.context.authorization?.split(' ')[1] || '';
+    let user = null;
 
-  let user = null;
-  if (token) {
-    try {
-      user = jwt.verify(token, 'secretkey');
-    } catch (e) {
-      if (e.name === 'TokenExpiredError') {
-        throw new Error("Token has expired, please log in again.");
+    if (token) {
+      try {
+        user = jwt.verify(token, 'secretkey');
+      } catch (e) {
+        if (e.name === 'TokenExpiredError') {
+          throw new Error("Token has expired, please log in again.");
+        }
+        throw new Error("Invalid token, authentication required.");
       }
-      throw new Error("Invalid token, authentication required.");
-    }  
+    }
+    return { pubsub, user };
+  } else {
+    const token = req?.headers?.authorization?.split(' ')[1] || '';
+    let user = null;
+
+    if (token) {
+      try {
+        user = jwt.verify(token, 'secretkey');
+      } catch (e) {
+        if (e.name === 'TokenExpiredError') {
+          throw new Error("Token has expired, please log in again.");
+        }
+        throw new Error("Invalid token, authentication required.");
+      }
+    }
+    return { pubsub, user };
   }
-  return { pubsub, user };
 };
 
 async function startServer() {

@@ -2,11 +2,6 @@ import { UserModel } from '../models/User.js';
 import { OrganizationModel } from '../models/Organization.js';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { PubSub } from 'graphql-subscriptions';
-
-const pubsub = new PubSub();
-
-const FRIEND_REQUEST_SENT = 'FRIEND_REQUEST_SENT';
 
 export const resolvers = {
   Query: {
@@ -205,7 +200,7 @@ export const resolvers = {
       }
     },
 
-    sendFriendRequest: async (_, { senderId, receiverId }) => {
+    sendFriendRequest: async (_, { senderId, receiverId }, { pubsub }) => {
       try {
         const sender = await UserModel.findById(senderId);
         const receiver = await UserModel.findById(receiverId);
@@ -224,7 +219,7 @@ export const resolvers = {
         await receiver.save();
         await sender.save();
 
-        pubsub.publish(FRIEND_REQUEST_SENT, { friendRequestSent: { senderId, receiverId, sender, receiver } });
+        pubsub.publish(`FRIEND_REQUEST_SENT_${receiverId}`, { friendRequestSent: { senderId, receiverId, sender, receiver } });
 
         return { success: true, message: 'Friend request sent successfully' };
       } catch (error) {
@@ -236,13 +231,17 @@ export const resolvers = {
   },
 
   Subscription: {
+
     friendRequestSent: {
-      subscribe: (_, { receiverId }) => pubsub.asyncIterator([FRIEND_REQUEST_SENT]),
+      subscribe: (_, { receiverId }, { pubsub }) => {
+        return pubsub.asyncIterator([`FRIEND_REQUEST_SENT_${receiverId}`]);
+      },
       resolve: (payload, args) => {
         return payload.friendRequestSent.receiverId === args.receiverId
           ? payload.friendRequestSent
           : null;
       },
     },
+
   },
 };
