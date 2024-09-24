@@ -2,6 +2,7 @@ import { UserModel } from '../models/User.js';
 import { OrganizationModel } from '../models/Organization.js';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
+import { subscribe } from 'graphql';
 
 export const resolvers = {
   Query: {
@@ -228,6 +229,54 @@ export const resolvers = {
       }
     },
 
+    acceptFriendRequest: async (_, { senderId, receiverId }, { pubsub }) => {
+      try {
+        const sender = await UserModel.findById(senderId);
+        const receiver = await UserModel.findById(receiverId);
+
+        if (!sender || !receiver) {
+          return { success: false, message: 'User not found' };
+        }
+
+        await UserModel.updateOne({ _id: receiverId }, { $pull: { FriendRequestSend: senderId } });
+        await UserModel.updateOne({ _id: senderId }, { $pull: { FriendRequestReceived: receiverId } });
+
+        receiver.Friends.push(senderId);
+        sender.Friends.push(receiverId);
+
+        await receiver.save();
+        await sender.save();
+
+        pubsub.publish(`FRIEND_REQUEST_ACCEPT_${senderId}`, { friendRequestAccept: { senderId, receiverId, sender, receiver } });
+
+        return { success: true, message: 'Friend request accepted successfully' };
+      } catch (error) {
+        console.error('Error sending friend request:', error);
+        return { success: false, message: 'Failed to accept friend request' };
+      }
+    },
+
+    rejectFriendRequest: async (_, { senderId, receiverId }, { pubsub }) => {
+      try {
+        const sender = await UserModel.findById(senderId);
+        const receiver = await UserModel.findById(receiverId);
+
+        if (!sender || !receiver) {
+          return { success: false, message: 'User not found' };
+        }
+        
+        await UserModel.updateOne({ _id: receiverId }, { $pull: { FriendRequestSend: senderId } });
+        await UserModel.updateOne({ _id: senderId }, { $pull: { FriendRequestReceived: receiverId } });
+
+        pubsub.publish(`FRIEND_REQUEST_REJECT_${receiverId}`, { friendRequestReject: { senderId, receiverId, sender, receiver } });
+
+        return { success: true, message: 'Friend request rejected successfully' };
+      } catch (error) {
+        console.error('Error sending friend request:', error);
+        return { success: false, message: 'Failed to reject friend request' };
+      }
+    },
+
   },
 
   Subscription: {
@@ -242,6 +291,32 @@ export const resolvers = {
           : null;
       },
     },
+
+    friendRequestAccept: {
+      subscribe: (_, { senderId }, { pubsub }) => {
+        console.log(`FRIEND_REQUEST_ACCEPT_${senderId}`);
+        
+        return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${senderId}`]);
+      },
+      resolve: (payload, args) => {
+        return payload.friendRequestAccept.senderId === args.senderId
+          ? payload.friendRequestAccept
+          :null;
+      }
+    },
+
+    friendRequestReject: {
+      subscribe: (_, { receiverId }, { pubsub }) => {
+        console.log(`FRIEND_REQUEST_REJECT_${receiverId}`);
+        
+        return pubsub.asyncIterator([`FRIEND_REQUEST_REJECT_${receiverId}`]);
+      },
+      resolve: (payload, args) => {
+        return payload.friendRequestReject.receiverId === args.receiverId
+          ? payload.friendRequestReject
+          :null;
+      }
+    }
 
   },
 };

@@ -96,10 +96,14 @@ export const typeDefs = gql`
     approveUser(userId: ID!): MutationResponse!
     rejectUser(userId: ID!): MutationResponse!
     sendFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
+    acceptFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
+    rejectFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
   }
 
   type Subscription {
     messageAdded(chatId: ID!): Message!
     friendRequestSent(receiverId: ID!): FriendRequestPayload!
+    friendRequestAccept(senderId: ID!): FriendRequestPayload!
+    friendRequestReject(receiverId: ID!): FriendRequestPayload!
   }
 `;
