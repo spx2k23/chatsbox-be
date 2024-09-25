@@ -86,7 +86,23 @@ export const resolvers = {
         console.error('Error fetching users:', error);
         throw new Error('Failed to fetch users');
       }
-    },    
+    },
+    
+    getFriends: async (_, { organizationId }, { user }) => {
+      try {
+        const currentUser = await UserModel.findById(user.id).populate('Friends');
+        if (!currentUser) {
+          throw new Error('User not found');
+        }
+        if (currentUser.Organization !== organizationId) {
+          throw new Error('Unauthorized to access friends in this organization');
+        }
+        return currentUser.Friends;
+      } catch (error) {
+        console.error('Error fetching friends:', error);
+        throw new Error('Failed to fetch friends');
+      }
+    }
 
   },
 

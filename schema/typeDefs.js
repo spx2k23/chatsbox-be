@@ -72,6 +72,7 @@ export const typeDefs = gql`
     login(Email: String!, Password: String!): AuthResponse!
     getUnapprovedUsers(organizationId: ID!): [User]
     getUsersInOrganization(organizationId: ID!): [User!]!
+    getFriends(organizationId: ID!): [User!]!
   }
 
   type Mutation {
