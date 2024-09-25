@@ -103,7 +103,7 @@ export const typeDefs = gql`
   type Subscription {
     messageAdded(chatId: ID!): Message!
     friendRequestSent(receiverId: ID!): FriendRequestPayload!
-    friendRequestAccept(senderId: ID!): FriendRequestPayload!
+    friendRequestAccept(receiverId: ID!): FriendRequestPayload!
     friendRequestReject(receiverId: ID!): FriendRequestPayload!
   }
 `;

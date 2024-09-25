@@ -247,7 +247,7 @@ export const resolvers = {
         await receiver.save();
         await sender.save();
 
-        pubsub.publish(`FRIEND_REQUEST_ACCEPT_${senderId}`, { friendRequestAccept: { senderId, receiverId, sender, receiver } });
+        pubsub.publish(`FRIEND_REQUEST_ACCEPT_${receiverId}`, { friendRequestAccept: { senderId, receiverId, sender, receiver } });
 
         return { success: true, message: 'Friend request accepted successfully' };
       } catch (error) {
@@ -293,13 +293,13 @@ export const resolvers = {
     },
 
     friendRequestAccept: {
-      subscribe: (_, { senderId }, { pubsub }) => {
-        console.log(`FRIEND_REQUEST_ACCEPT_${senderId}`);
+      subscribe: (_, { receiverId }, { pubsub }) => {
+        console.log(`FRIEND_REQUEST_ACCEPT_${receiverId}`);
         
-        return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${senderId}`]);
+        return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${receiverId}`]);
       },
       resolve: (payload, args) => {
-        return payload.friendRequestAccept.senderId === args.senderId
+        return payload.friendRequestAccept.receiverId === args.receiverId
           ? payload.friendRequestAccept
           :null;
       }
