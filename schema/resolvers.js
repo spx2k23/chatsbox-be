@@ -88,14 +88,11 @@ export const resolvers = {
       }
     },
     
-    getFriends: async (_, { organizationId }, { user }) => {
+    getFriends: async (_, __, { user }) => {
       try {
         const currentUser = await UserModel.findById(user.id).populate('Friends');
         if (!currentUser) {
           throw new Error('User not found');
-        }
-        if (currentUser.Organization !== organizationId) {
-          throw new Error('Unauthorized to access friends in this organization');
         }
         return currentUser.Friends;
       } catch (error) {
@@ -310,8 +307,6 @@ export const resolvers = {
 
     friendRequestAccept: {
       subscribe: (_, { receiverId }, { pubsub }) => {
-        console.log(`FRIEND_REQUEST_ACCEPT_${receiverId}`);
-        
         return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${receiverId}`]);
       },
       resolve: (payload, args) => {
@@ -323,8 +318,6 @@ export const resolvers = {
 
     friendRequestReject: {
       subscribe: (_, { receiverId }, { pubsub }) => {
-        console.log(`FRIEND_REQUEST_REJECT_${receiverId}`);
-        
         return pubsub.asyncIterator([`FRIEND_REQUEST_REJECT_${receiverId}`]);
       },
       resolve: (payload, args) => {
