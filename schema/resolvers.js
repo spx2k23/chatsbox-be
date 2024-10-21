@@ -244,7 +244,7 @@ export const resolvers = {
             type: 'FRIEND_REQUEST',
             senderId,
             receiverId,
-            message: 'You have a new friend request',
+            message: sender.Name+' has send you friend request',
           })
         }
 
@@ -260,7 +260,7 @@ export const resolvers = {
         const sender = await UserModel.findById(senderId);
         const receiver = await UserModel.findById(receiverId);
 
-        const onlineStatus = isUserOnline(senderId);
+        const onlineStatus = isUserOnline(receiverId);
 
         if (!sender || !receiver) {
           return { success: false, message: 'User not found' };
@@ -282,7 +282,7 @@ export const resolvers = {
             type: 'FRIEND_REQUEST_ACCEPT',
             senderId,
             receiverId,
-            message: 'Your friend request has been accepted',
+            message: sender.Name+ ' has accepted your friend request',
           });
         }
 
@@ -324,30 +324,18 @@ export const resolvers = {
       }
     },
 
-    sendPendingNotifications: async (_, _, {userId}) => {
-      const pendingNotifications = await NotificationModel.find({ receiverId: userId });
+    checkPendingNotifications: async (_, _, {userId}) => {
+      try {
+        const pendingNotifications = await NotificationModel.find({ receiverId: userId })
+        .populate('senderId', 'Name Email ProfilePicture MobileNumber ');
 
-      pendingNotifications.forEach((notification) => {
-        if (notification.type === 'FRIEND_REQUEST') {
-          pubsub.publish(`FRIEND_REQUEST_SENT_${userId}`, {
-            friendRequestSent: {
-              senderId: notification.senderId,
-              receiverId: userId,
-            },
-          });
-        }
+        await NotificationModel.deleteMany({ receiverId: userId });
 
-        if (notification.type === 'FRIEND_REQUEST_ACCEPT') {
-          pubsub.publish(`FRIEND_REQUEST_ACCEPT_${userId}`, {
-            friendRequestAccept: {
-              senderId: notification.senderId,
-              receiverId: userId,
-            },
-          });
-        }
-      });
-      
-      await NotificationModel.deleteMany({ receiverId: userId });
+        return {success: true, pendingNotifications }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+        return { success: false, pendingNotifications: [] };
+      }
     }
 
   },

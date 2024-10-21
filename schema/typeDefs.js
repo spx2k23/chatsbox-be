@@ -28,7 +28,7 @@ export const typeDefs = gql`
   type Notification {
     id: ID!
     receiverId: ID!
-    senderId: ID!
+    senderId: User!
     type: String!
     message: String!
     isDelivered: Boolean!
@@ -67,6 +67,11 @@ export const typeDefs = gql`
     getFriends: [User!]!
   }
 
+  type NotificationResponse {
+    success: Boolean!
+    pendingNotifications: [Notification!]!
+  }
+
   type Mutation {
     registerOrganization(
       Name: String!,
@@ -91,6 +96,7 @@ export const typeDefs = gql`
     acceptFriendRequest(senderId: ID!, receiverId: ID!): FriendRequestResponse!
     rejectFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
     addMessage(sender: ID!, receiver: ID!, message: String!): MutationResponse!
+    checkPendingNotifications: NotificationResponse!
   }
 
   type Subscription {
