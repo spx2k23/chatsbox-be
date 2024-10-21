@@ -1,8 +1,10 @@
 import { UserModel } from '../models/User.js';
 import { OrganizationModel } from '../models/Organization.js';
+import { ChatModel } from '../models/Chat.js';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { subscribe } from 'graphql';
+import { isUserOnline } from '../userService.js';
+import { NotificationModel } from '../models/Notification.js';
 
 export const resolvers = {
   Query: {
@@ -219,6 +221,8 @@ export const resolvers = {
         const sender = await UserModel.findById(senderId);
         const receiver = await UserModel.findById(receiverId);
 
+        const onlineStatus = isUserOnline(receiverId);
+
         if (!sender || !receiver) {
           return { success: false, message: 'User not found' };
         }
@@ -233,7 +237,16 @@ export const resolvers = {
         await receiver.save();
         await sender.save();
 
-        pubsub.publish(`FRIEND_REQUEST_SENT_${receiverId}`, { friendRequestSent: { senderId, receiverId, sender, receiver } });
+        if (onlineStatus) {
+          pubsub.publish(`FRIEND_REQUEST_SENT_${receiverId}`, { friendRequestSent: { senderId, receiverId, sender, receiver } });
+        } else {
+          await NotificationModel.create({
+            type: 'FRIEND_REQUEST',
+            senderId,
+            receiverId,
+            message: 'You have a new friend request',
+          })
+        }
 
         return { success: true, message: 'Friend request sent successfully' };
       } catch (error) {
@@ -246,6 +259,8 @@ export const resolvers = {
       try {
         const sender = await UserModel.findById(senderId);
         const receiver = await UserModel.findById(receiverId);
+
+        const onlineStatus = isUserOnline(senderId);
 
         if (!sender || !receiver) {
           return { success: false, message: 'User not found' };
@@ -260,9 +275,18 @@ export const resolvers = {
         await receiver.save();
         await sender.save();
 
-        pubsub.publish(`FRIEND_REQUEST_ACCEPT_${receiverId}`, { friendRequestAccept: { senderId, receiverId, sender, receiver } });
+        if (onlineStatus) {
+          pubsub.publish(`FRIEND_REQUEST_ACCEPT_${receiverId}`, { friendRequestAccept: { senderId, receiverId, sender, receiver } });
+        } else {
+          await NotificationModel.create({
+            type: 'FRIEND_REQUEST_ACCEPT',
+            senderId,
+            receiverId,
+            message: 'Your friend request has been accepted',
+          });
+        }
 
-        return { success: true, message: 'Friend request accepted successfully' };
+        return { success: true, message: 'Friend request accepted successfully', sender };
       } catch (error) {
         console.error('Error sending friend request:', error);
         return { success: false, message: 'Failed to accept friend request' };
@@ -290,6 +314,42 @@ export const resolvers = {
       }
     },
 
+    addMessage: async (_, { sender, receiver, message }) => {
+      try{
+        const newMessage = new ChatModel({ sender, receiver, message });
+        await newMessage.save();
+        return { success: true, message: 'Message saved.' };
+      } catch (error) {
+        return { success: false, message: 'Failed to send message.' };
+      }
+    },
+
+    sendPendingNotifications: async (_, _, {userId}) => {
+      const pendingNotifications = await NotificationModel.find({ receiverId: userId });
+
+      pendingNotifications.forEach((notification) => {
+        if (notification.type === 'FRIEND_REQUEST') {
+          pubsub.publish(`FRIEND_REQUEST_SENT_${userId}`, {
+            friendRequestSent: {
+              senderId: notification.senderId,
+              receiverId: userId,
+            },
+          });
+        }
+
+        if (notification.type === 'FRIEND_REQUEST_ACCEPT') {
+          pubsub.publish(`FRIEND_REQUEST_ACCEPT_${userId}`, {
+            friendRequestAccept: {
+              senderId: notification.senderId,
+              receiverId: userId,
+            },
+          });
+        }
+      });
+      
+      await NotificationModel.deleteMany({ receiverId: userId });
+    }
+
   },
 
   Subscription: {
@@ -313,7 +373,7 @@ export const resolvers = {
         return payload.friendRequestAccept.receiverId === args.receiverId
           ? payload.friendRequestAccept
           :null;
-      }
+      },
     },
 
     friendRequestReject: {
@@ -324,7 +384,7 @@ export const resolvers = {
         return payload.friendRequestReject.receiverId === args.receiverId
           ? payload.friendRequestReject
           :null;
-      }
+      },
     }
 
   },

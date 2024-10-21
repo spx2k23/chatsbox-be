@@ -25,33 +25,25 @@ export const typeDefs = gql`
     isRequestReceived: Boolean
   }
 
-  type Message {
+  type Notification {
     id: ID!
-    Content: String!
-    Sender: User!
-    Receiver: User!
-    CreatedAt: String!
-  }
-
-  type Grop {
-    id: ID!
-    GropName: String!
-    Image: String!
-    Admin: [User!]!
-    CreatedAt: String!
-  }
-
-  type GropMessage {
-    id: ID!
-    Content: String!
-    Sender: User!
-    GropId: Grop!
-    CreatedAt: String!
+    receiverId: ID!
+    senderId: ID!
+    type: String!
+    message: String!
+    isDelivered: Boolean!
+    createdAt: String!
   }
 
   type MutationResponse {
     success: Boolean!
     message: String!
+  }
+
+  type FriendRequestResponse {
+    success: Boolean!
+    message: String!
+    sender: User!
   }
 
   type AuthResponse {
@@ -93,16 +85,15 @@ export const typeDefs = gql`
       ProfilePicture: String!,
       OrganizationCode: String!
     ): MutationResponse!
-    sendMessage(chatId: ID!, senderId: ID!, content: String!): Message!
     approveUser(userId: ID!): MutationResponse!
     rejectUser(userId: ID!): MutationResponse!
     sendFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
-    acceptFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
+    acceptFriendRequest(senderId: ID!, receiverId: ID!): FriendRequestResponse!
     rejectFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
+    addMessage(sender: ID!, receiver: ID!, message: String!): MutationResponse!
   }
 
   type Subscription {
-    messageAdded(chatId: ID!): Message!
     friendRequestSent(receiverId: ID!): FriendRequestPayload!
     friendRequestAccept(receiverId: ID!): FriendRequestPayload!
     friendRequestReject(receiverId: ID!): FriendRequestPayload!

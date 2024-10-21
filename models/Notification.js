@@ -1,19 +1,23 @@
-import mongoose from 'mongoose';
+import mongoose from "mongoose";
 
-const ChatSchema = new mongoose.Schema({
-    sender: {
+const NotificationSchema = new mongoose.Schema({
+    receiverId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: "User",
         required: true
     },
-    receiver: {
+    senderId: {
         type: mongoose.Schema.Types.ObjectId,
-        ref: 'User',
+        ref: "User",
+        required: true
+    },
+    type: {
+        type: String,
+        enum: ["FRIEND_REQUEST", "MESSAGE"],
         required: true
     },
     message: {
-        type: String,
-        required: true
+        type: String
     },
     isDelivered: {
         type: Boolean,
@@ -27,4 +31,4 @@ const ChatSchema = new mongoose.Schema({
     { timestamps: true }
 );
 
-export const ChatModel = mongoose.model('Chat', ChatSchema);
+export const NotificationModel = mongoose.model("Notification", NotificationSchema);

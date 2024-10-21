@@ -89,7 +89,30 @@ async function startServer() {
     path: server.graphqlPath,
   });
 
-  useServer({ schema, execute, subscribe, context }, wsServer);
+  useServer({
+    schema,
+    execute,
+    subscribe,
+    context,
+    onConnect: async (ctx) => {
+      const token = ctx.connectionParams.authorization?.split(' ')[1];
+      if (token) {
+        const user = jwt.verify(token, 'secretkey');
+        if (user?.id) {
+          markUserOnline(user.id);
+        }
+      }
+    },
+    onDisconnect: async (ctx) => {
+      const token = ctx.connectionParams.authorization?.split(' ')[1];
+      if (token) {
+        const user = jwt.verify(token, 'secretkey');
+        if (user?.id) {
+          markUserOffline(user.id);
+        }
+      }
+    }
+  }, wsServer);
 
   httpServer.listen({ port: 5000 }, () => {
     console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`);
