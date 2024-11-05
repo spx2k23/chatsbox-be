@@ -324,7 +324,7 @@ export const resolvers = {
       }
     },
 
-    checkPendingNotifications: async (_, _, {userId}) => {
+    checkPendingNotifications: async (_, __, {userId}) => {
       try {
         const pendingNotifications = await NotificationModel.find({ receiverId: userId })
         .populate('senderId', 'Name Email ProfilePicture MobileNumber ');
