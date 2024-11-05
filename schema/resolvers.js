@@ -101,7 +101,12 @@ export const resolvers = {
         console.error('Error fetching friends:', error);
         throw new Error('Failed to fetch friends');
       }
-    }
+    },
+
+    getMessages: async (_, { receiverId }) => {
+      const messages = await ChatModel.find({ receiverId, isDelivered: false });
+      return messages;
+    },
 
   },
 
@@ -315,13 +320,7 @@ export const resolvers = {
     },
 
     addMessage: async (_, { sender, receiver, message }) => {
-      try{
-        const newMessage = new ChatModel({ sender, receiver, message });
-        await newMessage.save();
-        return { success: true, message: 'Message saved.' };
-      } catch (error) {
-        return { success: false, message: 'Failed to send message.' };
-      }
+      
     },
 
     checkPendingNotifications: async (_, __, {userId}) => {
@@ -336,7 +335,22 @@ export const resolvers = {
         console.error('Error fetching notifications:', error);
         return { success: false, pendingNotifications: [] };
       }
-    }
+    },
+
+    sendMessage: async (_, { senderId, receiverId, content }, { pubsub }) => {
+      const onlineStatus = isUserOnline(receiverId);
+
+      if (onlineStatus) {
+        pubsub.publish(`MESSAGE_RECEIVED_${receiverId}`, { 
+          messageReceived: { senderId, receiverId, content, timestamp: new Date(), isDelivered: true }
+        });
+        return true;
+      } else {
+        const message = new MessageModel({ senderId, receiverId, content });
+        await message.save();
+        return true;
+      }
+    },
 
   },
 
@@ -373,7 +387,17 @@ export const resolvers = {
           ? payload.friendRequestReject
           :null;
       },
-    }
+    },
+
+    messageReceived: {
+      subscribe: (_, { receiverId }, { pubsub }) => {
+        return pubsub.asyncIterator([`MESSAGE_RECEIVED_${receiverId}`]);
+      },
+      resolve: async (payload) => {
+        await MessageModel.deleteOne({ _id: payload.messageReceived.id });
+        return payload.messageReceived;
+      },
+    },
 
   },
 };

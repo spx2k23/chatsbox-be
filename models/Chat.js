@@ -11,7 +11,7 @@ const ChatSchema = new mongoose.Schema({
         ref: 'User',
         required: true
     },
-    message: {
+    content: {
         type: String,
         required: true
     },
@@ -19,7 +19,7 @@ const ChatSchema = new mongoose.Schema({
         type: Boolean,
         default: false
     },
-    createdAt: {
+    timestamp: {
         type: Date,
         default: Date.now
     },

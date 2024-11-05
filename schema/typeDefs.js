@@ -25,6 +25,15 @@ export const typeDefs = gql`
     isRequestReceived: Boolean
   }
 
+  type Message {
+    id: ID!
+    senderId: ID!
+    receiverId: ID!
+    content: String!
+    timestamp: String!
+    isDelivered: Boolean!
+  }
+
   type Notification {
     id: ID!
     receiverId: ID!
@@ -65,6 +74,7 @@ export const typeDefs = gql`
     getUnapprovedUsers(organizationId: ID!): [User]
     getUsersInOrganization(organizationId: ID!): [User!]!
     getFriends: [User!]!
+    getMessages(receiverId: ID!): [Message!]!
   }
 
   type NotificationResponse {
@@ -97,11 +107,13 @@ export const typeDefs = gql`
     rejectFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
     addMessage(sender: ID!, receiver: ID!, message: String!): MutationResponse!
     checkPendingNotifications: NotificationResponse!
+    sendMessage(senderId: ID!, receiverId: ID!, content: String!): Boolean
   }
 
   type Subscription {
     friendRequestSent(receiverId: ID!): FriendRequestPayload!
     friendRequestAccept(receiverId: ID!): FriendRequestPayload!
     friendRequestReject(receiverId: ID!): FriendRequestPayload!
+    messageReceived(receiverId: ID!): Message!
   }
 `;
