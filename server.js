@@ -15,7 +15,7 @@ import jwt from 'jsonwebtoken';
 
 dotenv.config();
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT;
 
 const app = express();
 const pubsub = new PubSub();
@@ -53,7 +53,7 @@ const context = ({ req, connection }) => {
         throw new Error("Invalid token, authentication required.");
       }
     }
-    return { pubsub, user };
+    return { pubsub, user, connection };
   } else {
     const token = req?.headers?.authorization?.split(' ')[1] || '';
     let user = null;
@@ -94,27 +94,9 @@ async function startServer() {
     execute,
     subscribe,
     context,
-    onConnect: async (ctx) => {
-      const token = ctx.connectionParams.authorization?.split(' ')[1];
-      if (token) {
-        const user = jwt.verify(token, 'secretkey');
-        if (user?.id) {
-          markUserOnline(user.id);
-        }
-      }
-    },
-    onDisconnect: async (ctx) => {
-      const token = ctx.connectionParams.authorization?.split(' ')[1];
-      if (token) {
-        const user = jwt.verify(token, 'secretkey');
-        if (user?.id) {
-          markUserOffline(user.id);
-        }
-      }
-    }
   }, wsServer);
 
-  httpServer.listen({ port: 5000 }, () => {
+  httpServer.listen({ port: PORT }, () => {
     console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`);
     console.log(`🚀 Subscriptions ready at ws://localhost:${PORT}${server.graphqlPath}`);
   });

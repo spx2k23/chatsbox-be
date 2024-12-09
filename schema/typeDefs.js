@@ -37,10 +37,9 @@ export const typeDefs = gql`
   type Notification {
     id: ID!
     receiverId: ID!
-    senderId: User!
+    sender: User!
     type: String!
     message: String!
-    isDelivered: Boolean!
     createdAt: String!
   }
 
@@ -115,5 +114,6 @@ export const typeDefs = gql`
     friendRequestAccept(receiverId: ID!): FriendRequestPayload!
     friendRequestReject(receiverId: ID!): FriendRequestPayload!
     messageReceived(receiverId: ID!): Message!
+    notification(receiverId: ID!): Notification!
   }
 `;

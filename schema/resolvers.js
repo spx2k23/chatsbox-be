@@ -3,8 +3,10 @@ import { OrganizationModel } from '../models/Organization.js';
 import { ChatModel } from '../models/Chat.js';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { isUserOnline } from '../userService.js';
 import { NotificationModel } from '../models/Notification.js';
+
+const activeFriendRequestAcceptSubscriptions = new Map();
+const activeNotificationSubscriptions = new Map();
 
 export const resolvers = {
   Query: {
@@ -226,8 +228,6 @@ export const resolvers = {
         const sender = await UserModel.findById(senderId);
         const receiver = await UserModel.findById(receiverId);
 
-        const onlineStatus = isUserOnline(receiverId);
-
         if (!sender || !receiver) {
           return { success: false, message: 'User not found' };
         }
@@ -265,8 +265,6 @@ export const resolvers = {
         const sender = await UserModel.findById(senderId);
         const receiver = await UserModel.findById(receiverId);
 
-        const onlineStatus = isUserOnline(receiverId);
-
         if (!sender || !receiver) {
           return { success: false, message: 'User not found' };
         }
@@ -280,15 +278,23 @@ export const resolvers = {
         await receiver.save();
         await sender.save();
 
-        if (onlineStatus) {
+        const isSubscribedtoFriend = activeFriendRequestAcceptSubscriptions.has(receiverId);
+
+        if (isSubscribedtoFriend) {
           pubsub.publish(`FRIEND_REQUEST_ACCEPT_${receiverId}`, { friendRequestAccept: { senderId, receiverId, sender, receiver } });
         } else {
-          await NotificationModel.create({
-            type: 'FRIEND_REQUEST_ACCEPT',
-            senderId,
-            receiverId,
-            message: sender.Name+ ' has accepted your friend request',
-          });
+          const isSubscribedtoNotification = activeNotificationSubscriptions.has(receiverId);
+          if(isSubscribedtoNotification){
+            const type = "FRIEND_REQUEST_ACCEPT"
+            pubsub.publish(`NOTIFICATION_${receiverId}`, { notification: { sender, receiverId, type } });
+          } else {
+            await NotificationModel.create({
+              type: 'FRIEND_REQUEST_ACCEPT',
+              senderId,
+              receiverId,
+              message: sender.Name + ' has accepted your friend request',
+            });
+          }
         }
 
         return { success: true, message: 'Friend request accepted successfully', sender };
@@ -338,7 +344,6 @@ export const resolvers = {
     },
 
     sendMessage: async (_, { senderId, receiverId, content }, { pubsub }) => {
-      const onlineStatus = isUserOnline(receiverId);
 
       if (onlineStatus) {
         pubsub.publish(`MESSAGE_RECEIVED_${receiverId}`, { 
@@ -368,15 +373,30 @@ export const resolvers = {
     },
 
     friendRequestAccept: {
-      subscribe: (_, { receiverId }, { pubsub }) => {
+      subscribe: (_, { receiverId }, { pubsub, connection }) => {
+        if (!activeFriendRequestAcceptSubscriptions.has(receiverId)) {
+          activeFriendRequestAcceptSubscriptions.set(receiverId, []);
+        }
+        
+        const connections = activeFriendRequestAcceptSubscriptions.get(receiverId);
+        connections.push(connection);
+        activeFriendRequestAcceptSubscriptions.set(receiverId, connections);
+
+        connection.onClose(() => {
+          const updatedConnections = activeFriendRequestAcceptSubscriptions
+            .get(receiverId)
+            .filter(conn => conn !== connection);
+    
+          if (updatedConnections.length > 0) {
+            activeFriendRequestAcceptSubscriptions.set(receiverId, updatedConnections);
+          } else {
+            activeFriendRequestAcceptSubscriptions.delete(receiverId);
+          }
+        });
+    
         return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${receiverId}`]);
       },
-      resolve: (payload, args) => {
-        return payload.friendRequestAccept.receiverId === args.receiverId
-          ? payload.friendRequestAccept
-          :null;
-      },
-    },
+    },    
 
     friendRequestReject: {
       subscribe: (_, { receiverId }, { pubsub }) => {
@@ -396,6 +416,32 @@ export const resolvers = {
       resolve: async (payload) => {
         await MessageModel.deleteOne({ _id: payload.messageReceived.id });
         return payload.messageReceived;
+      },
+    },
+
+    notification : {
+      subscribe: (_, { userId }, { pubsub, connection }) => {
+        if (!activeNotificationSubscriptions.has(userId)) {
+          activeNotificationSubscriptions.set(userId, []);
+        }
+
+        const connections = activeNotificationSubscriptions.get(userId);
+
+        connections.push(connection);
+        activeNotificationSubscriptions.set(userId, connections);
+
+        connection.onClose(() => {
+          const updatedConnections = activeNotificationSubscriptions
+            .get(userId)
+            .filter(conn => conn !== connection);
+    
+          if (updatedConnections.length > 0) {
+            activeNotificationSubscriptions.set(userId, updatedConnections);
+          } else {
+            activeNotificationSubscriptions.delete(userId);
+          }
+        });
+        return pubsub.asyncIterator([`NOTIFICATION_${userId}`]);
       },
     },
 
