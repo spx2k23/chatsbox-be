@@ -5,6 +5,7 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { NotificationModel } from '../models/Notification.js';
 
+const activeSendFriendRequestSubscriptions = new Map();
 const activeFriendRequestAcceptSubscriptions = new Map();
 const activeNotificationSubscriptions = new Map();
 
@@ -242,7 +243,8 @@ export const resolvers = {
         await receiver.save();
         await sender.save();
 
-        if (onlineStatus) {
+        const isSubscribedtoFriend = activeSendFriendRequestSubscriptions.has(receiverId);
+        if (isSubscribedtoFriend) {
           pubsub.publish(`FRIEND_REQUEST_SENT_${receiverId}`, { friendRequestSent: { senderId, receiverId, sender, receiver } });
         } else {
           await NotificationModel.create({
@@ -362,19 +364,34 @@ export const resolvers = {
   Subscription: {
 
     friendRequestSent: {
-      subscribe: (_, { receiverId }, { pubsub }) => {
+      subscribe: (_, { receiverId }, { pubsub, connection }) => {
+        if (!activeSendFriendRequestSubscriptions.has(receiverId)) {
+          activeSendFriendRequestSubscriptions.set(receiverId, []);
+        }
+
+        const connections = activeSendFriendRequestSubscriptions.get(receiverId);
+        connections.push(connection);
+        activeSendFriendRequestSubscriptions.set(receiverId, connections);
+
+        connection.onClose(() => {
+          const updatedConnections = activeSendFriendRequestSubscriptions
+            .get(receiverId)
+            .filter(conn => conn !== connection);
+    
+          if (updatedConnections.length > 0) {
+            activeSendFriendRequestSubscriptions.set(receiverId, updatedConnections);
+          } else {
+            activeSendFriendRequestSubscriptions.delete(receiverId);
+          }
+        });
+    
         return pubsub.asyncIterator([`FRIEND_REQUEST_SENT_${receiverId}`]);
-      },
-      resolve: (payload, args) => {
-        return payload.friendRequestSent.receiverId === args.receiverId
-          ? payload.friendRequestSent
-          : null;
       },
     },
 
     friendRequestAccept: {
       subscribe: (_, { receiverId }, { pubsub, connection }) => {
-        if (!activeFriendRequestAcceptSubscriptions.has(receiverId)) {
+        if (!activeFriendRequestAcceptSubscriptions.has(receiverId)) {         
           activeFriendRequestAcceptSubscriptions.set(receiverId, []);
         }
         
