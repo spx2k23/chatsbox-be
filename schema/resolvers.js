@@ -4,6 +4,7 @@ import { ChatModel } from '../models/Chat.js';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import { NotificationModel } from '../models/Notification.js';
+import { activeSubscriptions } from '../server.js'
 
 const activeSendFriendRequestSubscriptions = new Map();
 const activeFriendRequestAcceptSubscriptions = new Map();
@@ -39,7 +40,7 @@ export const resolvers = {
           organization: null,
         };
       }
-      const token = jwt.sign({ id: user.id ,superAdmin: user.SuperAdmin}, 'secretkey', { expiresIn: '1h' });
+      const token = jwt.sign({ id: user.id ,superAdmin: user.SuperAdmin}, 'secretkey', { expiresIn: '7d' });
       return {
         success: true,
         message: 'Login successful',
@@ -243,7 +244,9 @@ export const resolvers = {
         await receiver.save();
         await sender.save();
 
-        const isSubscribedtoFriend = activeSendFriendRequestSubscriptions.has(receiverId);
+        const typeMap = activeSubscriptions.get(receiverId);
+        const isSubscribedtoFriend = typeMap && typeMap.has("friendRequestSent") && typeMap.get("friendRequestSent").size > 0;
+        
         if (isSubscribedtoFriend) {
           pubsub.publish(`FRIEND_REQUEST_SENT_${receiverId}`, { friendRequestSent: { senderId, receiverId, sender, receiver } });
         } else {
@@ -280,9 +283,11 @@ export const resolvers = {
         await receiver.save();
         await sender.save();
 
-        const isSubscribedtoFriend = activeFriendRequestAcceptSubscriptions.has(receiverId);
+        const typeMap = activeSubscriptions.get(receiverId);
+        const isSubscribedtoFriend = typeMap && typeMap.has("friendRequestAccept") && typeMap.get("friendRequestAccept").size > 0;
 
         if (isSubscribedtoFriend) {
+          console.log("pusub");
           pubsub.publish(`FRIEND_REQUEST_ACCEPT_${receiverId}`, { friendRequestAccept: { senderId, receiverId, sender, receiver } });
         } else {
           const isSubscribedtoNotification = activeNotificationSubscriptions.has(receiverId);
@@ -365,53 +370,47 @@ export const resolvers = {
 
     friendRequestSent: {
       subscribe: (_, { receiverId }, { pubsub, connection }) => {
-        if (!activeSendFriendRequestSubscriptions.has(receiverId)) {
-          activeSendFriendRequestSubscriptions.set(receiverId, []);
+    
+        if (!activeSubscriptions.has(receiverId)) {
+          activeSubscriptions.set(receiverId, new Map());
         }
+        const typeMap = activeSubscriptions.get(receiverId);
+        if (!typeMap.has("friendRequestSent")) {
+          typeMap.set("friendRequestSent", new Set());
+        }
+        const connections = typeMap.get("friendRequestSent");
+        connections.add(connection);
 
-        const connections = activeSendFriendRequestSubscriptions.get(receiverId);
-        connections.push(connection);
-        activeSendFriendRequestSubscriptions.set(receiverId, connections);
-
-        connection.onClose(() => {
-          const updatedConnections = activeSendFriendRequestSubscriptions
-            .get(receiverId)
-            .filter(conn => conn !== connection);
-    
-          if (updatedConnections.length > 0) {
-            activeSendFriendRequestSubscriptions.set(receiverId, updatedConnections);
-          } else {
-            activeSendFriendRequestSubscriptions.delete(receiverId);
-          }
-        });
-    
+        console.log("Active subscriptions:", activeSubscriptions);
         return pubsub.asyncIterator([`FRIEND_REQUEST_SENT_${receiverId}`]);
       },
+      resolve: (payload, args) => {
+        return payload.friendRequestSent.receiverId === args.receiverId
+          ? payload.friendRequestSent
+          : null;
+      },
     },
+    
 
     friendRequestAccept: {
       subscribe: (_, { receiverId }, { pubsub, connection }) => {
-        if (!activeFriendRequestAcceptSubscriptions.has(receiverId)) {         
-          activeFriendRequestAcceptSubscriptions.set(receiverId, []);
+        if (!activeSubscriptions.has(receiverId)) {
+          activeSubscriptions.set(receiverId, new Map());
         }
-        
-        const connections = activeFriendRequestAcceptSubscriptions.get(receiverId);
-        connections.push(connection);
-        activeFriendRequestAcceptSubscriptions.set(receiverId, connections);
+        const typeMap = activeSubscriptions.get(receiverId);
+        if (!typeMap.has("friendRequestAccept")) {
+          typeMap.set("friendRequestAccept", new Set());
+        }
+        const connections = typeMap.get("friendRequestAccept");
+        connections.add(connection);
 
-        connection.onClose(() => {
-          const updatedConnections = activeFriendRequestAcceptSubscriptions
-            .get(receiverId)
-            .filter(conn => conn !== connection);
-    
-          if (updatedConnections.length > 0) {
-            activeFriendRequestAcceptSubscriptions.set(receiverId, updatedConnections);
-          } else {
-            activeFriendRequestAcceptSubscriptions.delete(receiverId);
-          }
-        });
-    
+        console.log("Active subscriptions:", activeSubscriptions);
         return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${receiverId}`]);
+      },
+      resolve: (payload, args) => {
+        return payload.friendRequestAccept.receiverId === args.receiverId
+          ? payload.friendRequestAccept
+          : null;
       },
     },    
 
@@ -438,27 +437,22 @@ export const resolvers = {
 
     notification : {
       subscribe: (_, { userId }, { pubsub, connection }) => {
-        if (!activeNotificationSubscriptions.has(userId)) {
-          activeNotificationSubscriptions.set(userId, []);
+        if (!activeSubscriptions.has(receiverId)) {
+          activeSubscriptions.set(receiverId, new Map());
         }
+        const typeMap = activeSubscriptions.get(receiverId);
+        if (!typeMap.has("notification")) {
+          typeMap.set("notification", new Set());
+        }
+        const connections = typeMap.get("notification");
+        connections.add(connection);
 
-        const connections = activeNotificationSubscriptions.get(userId);
-
-        connections.push(connection);
-        activeNotificationSubscriptions.set(userId, connections);
-
-        connection.onClose(() => {
-          const updatedConnections = activeNotificationSubscriptions
-            .get(userId)
-            .filter(conn => conn !== connection);
-    
-          if (updatedConnections.length > 0) {
-            activeNotificationSubscriptions.set(userId, updatedConnections);
-          } else {
-            activeNotificationSubscriptions.delete(userId);
-          }
-        });
         return pubsub.asyncIterator([`NOTIFICATION_${userId}`]);
+      },
+      resolve: (payload, args) => {
+        return payload.notification.receiverId === args.receiverId
+          ? payload.notification
+          : null;
       },
     },
 

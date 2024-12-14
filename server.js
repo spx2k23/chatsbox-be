@@ -38,6 +38,8 @@ const databaseConnetion = () => {
   }
 }
 
+export const activeSubscriptions = new Map(); 
+
 const context = ({ req, connection }) => {
   if (connection) {
     const token = connection.context.authorization?.split(' ')[1] || '';
@@ -94,6 +96,19 @@ async function startServer() {
     execute,
     subscribe,
     context,
+    onDisconnect: (ctx) => {
+      activeSubscriptions.forEach((typeMap, receiverId) => {
+        typeMap.forEach((connections, type) => {
+          connections.delete(ctx.connection);
+          if (connections.size === 0) {
+            typeMap.delete(type);
+          }
+        });
+        if (typeMap.size === 0) {
+          activeSubscriptions.delete(receiverId);
+        }
+      });
+    },
   }, wsServer);
 
   httpServer.listen({ port: PORT }, () => {
