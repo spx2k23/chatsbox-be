@@ -287,17 +287,16 @@ export const resolvers = {
         const isSubscribedtoFriend = typeMap && typeMap.has("friendRequestAccept") && typeMap.get("friendRequestAccept").size > 0;
 
         if (isSubscribedtoFriend) {
-          console.log("pusub");
           pubsub.publish(`FRIEND_REQUEST_ACCEPT_${receiverId}`, { friendRequestAccept: { senderId, receiverId, sender, receiver } });
         } else {
-          const isSubscribedtoNotification = activeNotificationSubscriptions.has(receiverId);
-          if(isSubscribedtoNotification){
+          const isSubscribed = typeMap && typeMap.has("notification") && typeMap.get("notification").size > 0;
+          if(isSubscribed){
             const type = "FRIEND_REQUEST_ACCEPT"
             pubsub.publish(`NOTIFICATION_${receiverId}`, { notification: { sender, receiverId, type } });
           } else {
             await NotificationModel.create({
               type: 'FRIEND_REQUEST_ACCEPT',
-              senderId,
+              sender : senderId,
               receiverId,
               message: sender.Name + ' has accepted your friend request',
             });
@@ -339,7 +338,7 @@ export const resolvers = {
     checkPendingNotifications: async (_, __, {userId}) => {
       try {
         const pendingNotifications = await NotificationModel.find({ receiverId: userId })
-        .populate('senderId', 'Name Email ProfilePicture MobileNumber ');
+        .populate('sender', 'id Name Email ProfilePicture MobileNumber');
 
         await NotificationModel.deleteMany({ receiverId: userId });
 
