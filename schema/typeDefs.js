@@ -58,6 +58,7 @@ export const typeDefs = gql`
     success: Boolean!
     message: String!
     token: String
+    user: User!
     organization: String
   }
 

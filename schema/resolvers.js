@@ -6,10 +6,6 @@ import jwt from "jsonwebtoken";
 import { NotificationModel } from '../models/Notification.js';
 import { activeSubscriptions } from '../server.js'
 
-const activeSendFriendRequestSubscriptions = new Map();
-const activeFriendRequestAcceptSubscriptions = new Map();
-const activeNotificationSubscriptions = new Map();
-
 export const resolvers = {
   Query: {
 
@@ -44,6 +40,7 @@ export const resolvers = {
       return {
         success: true,
         message: 'Login successful',
+        user,
         token,
         organization: user.Organization,
       };
