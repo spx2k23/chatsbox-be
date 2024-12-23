@@ -1,10 +1,10 @@
-import { UserModel } from '../models/User.js';
-import { OrganizationModel } from '../models/Organization.js';
-import { ChatModel } from '../models/Chat.js';
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { NotificationModel } from '../models/Notification.js';
 import { activeSubscriptions } from '../server.js'
+import { UserModel } from '../models/User.js';
+import { MessageModel } from "../models/Message.js";
+import { OrganizationModel } from '../models/Organization.js';
+import { NotificationModel } from '../models/Notification.js';
 
 export const resolvers = {
   Query: {
@@ -104,9 +104,14 @@ export const resolvers = {
       }
     },
 
-    getMessages: async (_, { receiverId }) => {
-      const messages = await ChatModel.find({ receiverId, isDelivered: false });
-      return messages;
+    getMessages: async (_, { senderId, receiverId }) => {
+      return await MessageModel.find({
+        $or: [
+          { sender: senderId, receiver: receiverId },
+          { sender: receiverId, receiver: senderId },
+        ],
+        isDeleted: false,
+      }).sort({ createdAt: 1 });
     },
 
   },
@@ -115,7 +120,7 @@ export const resolvers = {
 
     registerOrganization: async (
       _,
-      { OrganizationName, OrganizationCode, Name, Email, MobileNumber, Password, ProfilePicture }
+      { OrganizationName, OrganizationCode, OrganizationImage, FirstName, SecondName, Email, MobileNumber, DateOfBirth, Bio, Role, Password, ProfilePicture }
     ) => {
       try {
         let organization = await OrganizationModel.findOne({ OrganizationName });
@@ -125,13 +130,17 @@ export const resolvers = {
             message: 'Organization already exists',
           };
         }
-        organization = new OrganizationModel({ OrganizationName, OrganizationCode });
+        organization = new OrganizationModel({ OrganizationName, OrganizationCode, OrganizationImage });
         await organization.save();
         const hashedPassword = await bcrypt.hash(Password, 10);
         const user = new UserModel({
-          Name,
+          FirstName,
+          SecondName,
           Email,
           MobileNumber,
+          DateOfBirth,
+          Bio,
+          Role,
           Password: hashedPassword,
           ProfilePicture,
           Organization: organization._id,
@@ -152,15 +161,19 @@ export const resolvers = {
       }
     },
 
-    register: async (_, { OrganizationCode, Name, Email, MobileNumber, Password, ProfilePicture }) => {
+    register: async (_, { OrganizationCode, FirstName, SecondName, Email, MobileNumber, DateOfBirth, Bio, Role, Password, ProfilePicture }) => {
       try {
         let organizationSearch = await OrganizationModel.findOne({ OrganizationCode });
         const organizationCode = organizationSearch._id;
         const hashedPassword = await bcrypt.hash(Password, 10);
         const user = new UserModel({
-          Name,
+          FirstName,
+          SecondName,
           Email,
           MobileNumber,
+          DateOfBirth,
+          Bio,
+          Role,
           Password: hashedPassword,
           ProfilePicture,
           Organization: organizationCode,
@@ -328,10 +341,6 @@ export const resolvers = {
       }
     },
 
-    addMessage: async (_, { sender, receiver, message }) => {
-      
-    },
-
     checkPendingNotifications: async (_, __, {userId}) => {
       try {
         const pendingNotifications = await NotificationModel.find({ receiverId: userId })
@@ -346,18 +355,36 @@ export const resolvers = {
       }
     },
 
-    sendMessage: async (_, { senderId, receiverId, content }, { pubsub }) => {
+    sendMessage: async (_, { senderId, receiverId, content, messageType }) => {
+      const newMessage = new MessageModel({
+        Sender: senderId,
+        Receiver: receiverId,
+        Content: content,
+        MessageType: messageType,
+      });
+      const savedMessage = await newMessage.save();
 
-      if (onlineStatus) {
-        pubsub.publish(`MESSAGE_RECEIVED_${receiverId}`, { 
-          messageReceived: { senderId, receiverId, content, timestamp: new Date(), isDelivered: true }
-        });
-        return true;
-      } else {
-        const message = new MessageModel({ senderId, receiverId, content });
-        await message.save();
-        return true;
-      }
+      pubsub.publish(`MESSAGE_ADDED_${receiverId}`, { newMessage: savedMessage });
+
+      return savedMessage;
+    },
+
+    updateMessageStatus: async (_, { messageId, deliveryStatus }) => {
+      const updatedMessage = await MessageModel.findByIdAndUpdate(
+        messageId,
+        { DeliveryStatus: deliveryStatus },
+        { new: true }
+      );
+      return updatedMessage;
+    },
+
+    markAsRead: async (_, { messageId }) => {
+      const updatedMessage = await MessageModel.findByIdAndUpdate(
+        messageId,
+        { ReadAt: new Date(), DeliveryStatus: 'read' },
+        { new: true }
+      );
+      return updatedMessage;
     },
 
   },
@@ -421,14 +448,11 @@ export const resolvers = {
       },
     },
 
-    messageReceived: {
-      subscribe: (_, { receiverId }, { pubsub }) => {
-        return pubsub.asyncIterator([`MESSAGE_RECEIVED_${receiverId}`]);
-      },
-      resolve: async (payload) => {
-        await MessageModel.deleteOne({ _id: payload.messageReceived.id });
-        return payload.messageReceived;
-      },
+    newMessage: {
+      subscribe: (_, { receiverId }) =>
+        pubsub.asyncIterator([`MESSAGE_ADDED_${receiverId}`]).filter(
+          (payload) => payload.newMessage.receiver.toString() === receiverId
+        ),
     },
 
     notification : {

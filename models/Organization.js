@@ -1,10 +1,14 @@
 import mongoose from 'mongoose';
 
 const OrganizationSchema = new mongoose.Schema({
-    OrganizationName: { 
+    OrganizationName: {
         type: String,
         required: true,
         unique: true
+    },
+    OrganizationImage: {
+        type: String,
+        required: true
     },
     OrganizationCode:{
         type: String,

@@ -1,9 +1,14 @@
 import mongoose from 'mongoose';
 
 const UserSchema = new mongoose.Schema({
-    Name: { 
+    FirstName: { 
         type: String,
         required: true,
+        unique: false
+    },
+    SecondName: { 
+        type: String,
+        required: false,
         unique: false
     },
     Email: {
@@ -16,23 +21,51 @@ const UserSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
-    Password: {
-        type: String,
-        required: true
-    },
     ProfilePicture: {
         type: String,
-        required: false
+        required: false,
+        default: null
     },
-    Organization: {
-        type: String,
+    DateOfBirth: {
+        type: Date,
         required: true
+    },
+    Bio: {
+        type: String,
+        required: false,
+        default: null
+    },
+    Role: {
+        type: String,
+        required: true,
     },
     SuperAdmin: {
         type: Boolean,
         required: false,
         default: false
     },
+    Password: {
+        type: String,
+        required: true
+    },
+    Organization: [
+        {
+            type: String,
+            required: true
+        }
+    ],
+    isBlockedBy: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          }
+    ],
+    isBlockedByMe: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          }
+    ],
     FriendRequestSend: [
         {
             type: mongoose.Schema.Types.ObjectId,
@@ -55,6 +88,11 @@ const UserSchema = new mongoose.Schema({
         type: Boolean,
         required: false,
         default: false
+    },
+    removedFromOrg: {
+        type: Boolean,
+        default: false,
+        required: true,
     }
 },
 

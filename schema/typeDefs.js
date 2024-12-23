@@ -5,12 +5,17 @@ export const typeDefs = gql`
     id: ID!
     OrganizationName: String!
     OrganizationCode: String!
+    OrganizationImage: String!
   }
 
   type User {
     id: ID!
-    Name: String!
+    FirstName: String!
+    SecondName: String!
     Email: String!
+    DateOfBirth: String!
+    Bio: String!
+    Role: String!
     MobileNumber: String!
     Password: String!
     ProfilePicture: String!
@@ -27,11 +32,15 @@ export const typeDefs = gql`
 
   type Message {
     id: ID!
-    senderId: ID!
-    receiverId: ID!
+    sender: User!
+    receiver: User!
     content: String!
-    timestamp: String!
-    isDelivered: Boolean!
+    messageType: String!
+    deliveryStatus: String!
+    readAt: String
+    isDeleted: Boolean!
+    createdAt: String!
+    updatedAt: String!
   }
 
   type Notification {
@@ -67,19 +76,19 @@ export const typeDefs = gql`
     receiverId: ID!
     sender: User!
     receiver: User!
-}
+  }
+
+  type NotificationResponse {
+    success: Boolean!
+    pendingNotifications: [Notification!]!
+  }
 
   type Query {
     login(Email: String!, Password: String!): AuthResponse!
     getUnapprovedUsers(organizationId: ID!): [User]
     getUsersInOrganization(organizationId: ID!): [User!]!
     getFriends: [User!]!
-    getMessages(receiverId: ID!): [Message!]!
-  }
-
-  type NotificationResponse {
-    success: Boolean!
-    pendingNotifications: [Notification!]!
+    getMessages(senderId: ID!, receiverId: ID!): [Message!]!
   }
 
   type Mutation {
@@ -105,16 +114,17 @@ export const typeDefs = gql`
     sendFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
     acceptFriendRequest(senderId: ID!, receiverId: ID!): FriendRequestResponse!
     rejectFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
-    addMessage(sender: ID!, receiver: ID!, message: String!): MutationResponse!
     checkPendingNotifications: NotificationResponse!
-    sendMessage(senderId: ID!, receiverId: ID!, content: String!): Boolean
+    sendMessage(senderId: ID!, receiverId: ID!, content: String!, messageType: String!): Message!
+    updateMessageStatus(messageId: ID!, deliveryStatus: String!): Message!
+    markAsRead(messageId: ID!): Message!
   }
 
   type Subscription {
     friendRequestSent(receiverId: ID!): FriendRequestPayload!
     friendRequestAccept(receiverId: ID!): FriendRequestPayload!
     friendRequestReject(receiverId: ID!): FriendRequestPayload!
-    messageReceived(receiverId: ID!): Message!
+    newMessage(receiverId: ID!): Message!
     notification(receiverId: ID!): Notification!
   }
 `;
