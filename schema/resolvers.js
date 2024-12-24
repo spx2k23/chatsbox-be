@@ -42,7 +42,7 @@ export const resolvers = {
         message: 'Login successful',
         user,
         token,
-        organization: user.Organization,
+        organization: user.Organization.OrganizationId,
       };
     },
 
@@ -120,7 +120,7 @@ export const resolvers = {
 
     registerOrganization: async (
       _,
-      { OrganizationName, OrganizationCode, OrganizationImage, FirstName, SecondName, Email, MobileNumber, DateOfBirth, Bio, Role, Password, ProfilePicture }
+      { OrganizationName, OrganizationCode, OrganizationLogo, FirstName, LastName, Email, MobileNumber, DateOfBirth, Bio, Role, Password, ProfilePicture }
     ) => {
       try {
         let organization = await OrganizationModel.findOne({ OrganizationName });
@@ -130,12 +130,12 @@ export const resolvers = {
             message: 'Organization already exists',
           };
         }
-        organization = new OrganizationModel({ OrganizationName, OrganizationCode, OrganizationImage });
+        organization = new OrganizationModel({ OrganizationName, OrganizationCode, OrganizationLogo });
         await organization.save();
         const hashedPassword = await bcrypt.hash(Password, 10);
         const user = new UserModel({
           FirstName,
-          SecondName,
+          LastName,
           Email,
           MobileNumber,
           DateOfBirth,
@@ -143,9 +143,11 @@ export const resolvers = {
           Role,
           Password: hashedPassword,
           ProfilePicture,
-          Organization: organization._id,
-          SuperAdmin: true,
-          isApproved: true,
+          Organization: {
+            OrganizationId: organization._id,
+            SuperAdmin: true,
+            isApproved: true,
+          }
         });
         await user.save();
         return {
@@ -161,14 +163,14 @@ export const resolvers = {
       }
     },
 
-    register: async (_, { OrganizationCode, FirstName, SecondName, Email, MobileNumber, DateOfBirth, Bio, Role, Password, ProfilePicture }) => {
+    register: async (_, { OrganizationCode, FirstName, LastName, Email, MobileNumber, DateOfBirth, Bio, Role, Password, ProfilePicture }) => {
       try {
         let organizationSearch = await OrganizationModel.findOne({ OrganizationCode });
         const organizationCode = organizationSearch._id;
         const hashedPassword = await bcrypt.hash(Password, 10);
         const user = new UserModel({
           FirstName,
-          SecondName,
+          LastName,
           Email,
           MobileNumber,
           DateOfBirth,
@@ -176,9 +178,11 @@ export const resolvers = {
           Role,
           Password: hashedPassword,
           ProfilePicture,
-          Organization: organizationCode,
-          SuperAdmin: false,
-          isApproved: false,
+          Organization: {
+            OrganizationId: organization._id,
+            SuperAdmin: true,
+            isApproved: true,
+          }
         });
         await user.save();
         return {
@@ -352,6 +356,26 @@ export const resolvers = {
       } catch (error) {
         console.error('Error fetching notifications:', error);
         return { success: false, pendingNotifications: [] };
+      }
+    },
+
+    blockUser: async (_, __, { userId, blockedUserId }) => {
+      try {
+        await UserModel.findByIdAndUpdate(userId, {
+          $addToSet: { isBlockedByMe: blockedUserId }
+        });
+        await UserModel.findByIdAndUpdate(blockedUserId, {
+          $addToSet: { isBlockedBy: userId }
+        });
+        return {
+          success: true,
+          message: "User successfully blocked.",
+        };
+      } catch (error) {
+        return {
+          success: false,
+          message: error.message,
+        };
       }
     },
 

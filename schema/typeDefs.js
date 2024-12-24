@@ -5,13 +5,13 @@ export const typeDefs = gql`
     id: ID!
     OrganizationName: String!
     OrganizationCode: String!
-    OrganizationImage: String!
+    OrganizationLogo: String!
   }
 
   type User {
     id: ID!
     FirstName: String!
-    SecondName: String!
+    LastName: String!
     Email: String!
     DateOfBirth: String!
     Bio: String!
@@ -19,15 +19,23 @@ export const typeDefs = gql`
     MobileNumber: String!
     Password: String!
     ProfilePicture: String!
-    Organization: Organization!
-    SuperAdmin: Boolean!
+    Organization: OrganizationResponse!
     FriendRequestSend: [User!]!
     FriendRequestReceived: [User!]!
     Friends: [User!]!
-    isApproved: Boolean!
     isFriend: Boolean
     isRequestSent: Boolean
     isRequestReceived: Boolean
+    isBlockedBy: [User!]!
+    isBlockedByMe: [User!]!
+  }
+
+  type OrganizationResponse {
+    OrganizationId: Organization!
+    SuperAdmin: Boolean!
+    adminRights: String!
+    isApproved: Boolean!
+    removedFromOrg: Boolean!
   }
 
   type Message {
@@ -93,16 +101,23 @@ export const typeDefs = gql`
 
   type Mutation {
     registerOrganization(
-      Name: String!,
+      FirstName: String!,
+      LastName: String!,
+      DateOfBirth: String!,
+      Role: String!,
       Email: String!,
       MobileNumber: String!,
       Password: String!,
       ProfilePicture: String!,
-      OrganizationName: String!
-      OrganizationCode: String!
+      OrganizationName: String!,
+      OrganizationCode: String!,
+      OrganizationLogo: String!
     ): MutationResponse!
     register(
-      Name: String!,
+      FirstName: String!,
+      LastName: String!,
+      DateOfBirth: String!,
+      Role: String!,
       Email: String!,
       MobileNumber: String!,
       Password: String!,
@@ -118,6 +133,7 @@ export const typeDefs = gql`
     sendMessage(senderId: ID!, receiverId: ID!, content: String!, messageType: String!): Message!
     updateMessageStatus(messageId: ID!, deliveryStatus: String!): Message!
     markAsRead(messageId: ID!): Message!
+    blockUser(userId: ID!, blockedUserId: ID!): MutationResponse!
   }
 
   type Subscription {

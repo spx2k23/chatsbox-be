@@ -6,7 +6,7 @@ const OrganizationSchema = new mongoose.Schema({
         required: true,
         unique: true
     },
-    OrganizationImage: {
+    OrganizationLogo: {
         type: String,
         required: true
     },

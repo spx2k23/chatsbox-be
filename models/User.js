@@ -6,7 +6,7 @@ const UserSchema = new mongoose.Schema({
         required: true,
         unique: false
     },
-    SecondName: { 
+    LastName: { 
         type: String,
         required: false,
         unique: false
@@ -24,7 +24,7 @@ const UserSchema = new mongoose.Schema({
     ProfilePicture: {
         type: String,
         required: false,
-        default: null
+        default: "null"
     },
     DateOfBirth: {
         type: Date,
@@ -33,16 +33,11 @@ const UserSchema = new mongoose.Schema({
     Bio: {
         type: String,
         required: false,
-        default: null
+        default: "null"
     },
     Role: {
         type: String,
         required: true,
-    },
-    SuperAdmin: {
-        type: Boolean,
-        required: false,
-        default: false
     },
     Password: {
         type: String,
@@ -50,21 +45,31 @@ const UserSchema = new mongoose.Schema({
     },
     Organization: [
         {
-            type: String,
-            required: true
+            OrganizationId: {
+                type: mongoose.Schema.Types.ObjectId,
+                ref: "Organization",
+                required: true,
+            },      
+            SuperAdmin: {
+                type: Boolean,
+                required: false,
+                default: false
+            },
+            adminRights: {
+                type: [String],
+                default: [],
+            },
+            isApproved: {
+                type: Boolean,
+                required: false,
+                default: false
+            },
+            removedFromOrg: {
+                type: Boolean,
+                default: false,
+                required: true,
+            }
         }
-    ],
-    isBlockedBy: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-          }
-    ],
-    isBlockedByMe: [
-        {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: "User",
-          }
     ],
     FriendRequestSend: [
         {
@@ -84,16 +89,18 @@ const UserSchema = new mongoose.Schema({
             ref: "User",
           }
     ],
-    isApproved: {
-        type: Boolean,
-        required: false,
-        default: false
-    },
-    removedFromOrg: {
-        type: Boolean,
-        default: false,
-        required: true,
-    }
+    isBlockedBy: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          }
+    ],
+    isBlockedByMe: [
+        {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: "User",
+          }
+    ]
 },
 
     { timestamps: true }
