@@ -15,7 +15,7 @@ export const typeDefs = gql`
     Email: String!
     DateOfBirth: String!
     Bio: String
-    Role: String
+    Role: String!
     MobileNumber: String!
     Password: String!
     ProfilePicture: String
@@ -31,10 +31,10 @@ export const typeDefs = gql`
   }
 
   type OrganizationResponse {
-    OrganizationId: Organization
-    SuperAdmin: Boolean
+    OrganizationId: Organization!
+    SuperAdmin: Boolean!
     adminRights: String
-    isApproved: Boolean
+    isApproved: Boolean!
     removedFromOrg: Boolean!
   }
 
