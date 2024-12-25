@@ -9,22 +9,21 @@ import { NotificationModel } from '../models/Notification.js';
 export const resolvers = {
   Query: {
 
-    login: async (_, { Email, Password }) => {
-      const user = await UserModel.findOne({ Email });
+    login: async (_, { Email, Password }) => {      
+      const user = await UserModel.findOne({ Email }).populate('Organization.OrganizationId');
+      // console.log(user); 
       if (!user) {
         return {
           success: false,
           message: 'User not founds',
-          token: null,
-          organization: null,
+          token: null
         };
       }
       if (user.isApproved === false) {
         return {
           success: false,
           message: 'User not approved by admin',
-          token: null,
-          organization: null,
+          token: null
         };
       }
       const isMatch = await bcrypt.compare(Password, user.Password);
@@ -32,8 +31,7 @@ export const resolvers = {
         return {
           success: false,
           message: 'Invalid credentials',
-          token: null,
-          organization: null,
+          token: null
         };
       }
       const token = jwt.sign({ id: user.id ,superAdmin: user.SuperAdmin}, 'secretkey', { expiresIn: '7d' });
@@ -41,8 +39,7 @@ export const resolvers = {
         success: true,
         message: 'Login successful',
         user,
-        token,
-        organization: user.Organization.OrganizationId,
+        token
       };
     },
 

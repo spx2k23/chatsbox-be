@@ -24,7 +24,7 @@ const UserSchema = new mongoose.Schema({
     ProfilePicture: {
         type: String,
         required: false,
-        default: "null"
+        default: null
     },
     DateOfBirth: {
         type: Date,
@@ -33,7 +33,7 @@ const UserSchema = new mongoose.Schema({
     Bio: {
         type: String,
         required: false,
-        default: "null"
+        default: null
     },
     Role: {
         type: String,

@@ -14,12 +14,12 @@ export const typeDefs = gql`
     LastName: String!
     Email: String!
     DateOfBirth: String!
-    Bio: String!
-    Role: String!
+    Bio: String
+    Role: String
     MobileNumber: String!
     Password: String!
-    ProfilePicture: String!
-    Organization: OrganizationResponse!
+    ProfilePicture: String
+    Organization: [OrganizationResponse]
     FriendRequestSend: [User!]!
     FriendRequestReceived: [User!]!
     Friends: [User!]!
@@ -31,10 +31,10 @@ export const typeDefs = gql`
   }
 
   type OrganizationResponse {
-    OrganizationId: Organization!
-    SuperAdmin: Boolean!
-    adminRights: String!
-    isApproved: Boolean!
+    OrganizationId: Organization
+    SuperAdmin: Boolean
+    adminRights: String
+    isApproved: Boolean
     removedFromOrg: Boolean!
   }
 
@@ -76,7 +76,6 @@ export const typeDefs = gql`
     message: String!
     token: String
     user: User!
-    organization: String
   }
 
   type FriendRequestPayload {
