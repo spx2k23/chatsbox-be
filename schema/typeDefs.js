@@ -19,7 +19,7 @@ export const typeDefs = gql`
     MobileNumber: String!
     Password: String!
     ProfilePicture: String
-    Organization: [OrganizationResponse]
+    Organization: [OrganizationResponse]!
     FriendRequestSend: [User!]!
     FriendRequestReceived: [User!]!
     Friends: [User!]!
@@ -33,7 +33,7 @@ export const typeDefs = gql`
   type OrganizationResponse {
     OrganizationId: Organization!
     SuperAdmin: Boolean!
-    adminRights: String
+    adminRights: [String]
     isApproved: Boolean!
     removedFromOrg: Boolean!
   }

@@ -57,7 +57,7 @@ const UserSchema = new mongoose.Schema({
             },
             adminRights: {
                 type: [String],
-                default: [],
+                default: [null],
             },
             isApproved: {
                 type: Boolean,
