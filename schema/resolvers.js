@@ -11,7 +11,6 @@ export const resolvers = {
 
     login: async (_, { Email, Password }) => {      
       const user = await UserModel.findOne({ Email }).populate('Organization.OrganizationId');
-      // console.log(user); 
       if (!user) {
         return {
           success: false,
@@ -62,8 +61,13 @@ export const resolvers = {
         const userId = user.id;
         
         const users = await UserModel.find({
-          Organization: organizationId,
-          isApproved: true,
+          Organization: {
+            $elemMatch: {
+              OrganizationId: organizationId,
+              isApproved: true,
+              removedFromOrg: false,
+            },
+          },
           _id: { $ne: userId },
         });
     
@@ -74,8 +78,11 @@ export const resolvers = {
     
           return {
             id: otherUser._id.toString(),
-            Name: otherUser.Name,
+            FirstName: otherUser.FirstName,
+            LastName: otherUser.LastName,
             Email: otherUser.Email,
+            Role: otherUser.Role,
+            Bio: otherUser.Bio,
             ProfilePicture: otherUser.ProfilePicture,
             isFriend,
             isRequestSent,
@@ -176,7 +183,7 @@ export const resolvers = {
           Password: hashedPassword,
           ProfilePicture,
           Organization: {
-            OrganizationId: organization._id,
+            OrganizationId: organizationCode,
             SuperAdmin: true,
             isApproved: true,
           }
