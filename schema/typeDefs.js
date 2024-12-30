@@ -54,7 +54,7 @@ export const typeDefs = gql`
   type Notification {
     id: ID!
     receiverId: ID!
-    sender: User!
+    sender: User
     type: String!
     message: String!
     createdAt: String!
@@ -68,14 +68,14 @@ export const typeDefs = gql`
   type FriendRequestResponse {
     success: Boolean!
     message: String!
-    sender: User!
+    receiver: User!
   }
 
   type AuthResponse {
     success: Boolean!
     message: String!
     token: String
-    user: User!
+    user: User
   }
 
   type FriendRequestPayload {
@@ -87,7 +87,7 @@ export const typeDefs = gql`
 
   type NotificationResponse {
     success: Boolean!
-    pendingNotifications: [Notification!]!
+    pendingNotifications: [Notification]
   }
 
   type Query {
