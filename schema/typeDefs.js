@@ -68,7 +68,7 @@ export const typeDefs = gql`
   type FriendRequestResponse {
     success: Boolean!
     message: String!
-    receiver: User!
+    user: User
   }
 
   type AuthResponse {
@@ -78,11 +78,17 @@ export const typeDefs = gql`
     user: User
   }
 
-  type FriendRequestPayload {
-    senderId: ID!
-    receiverId: ID!
-    sender: User!
-    receiver: User!
+  type FriendRequestSendResponse{
+    friendRequestSenderId: ID!
+  }
+
+  type FriendRequestAcceptResponse {
+    friendRequestAccepterId: ID!
+    friendRequestAccepter: User!
+  }
+
+  type FriendRequestRejectResponse {
+    friendRequestRejecterId: ID!
   }
 
   type NotificationResponse {
@@ -125,9 +131,9 @@ export const typeDefs = gql`
     ): MutationResponse!
     approveUser(userId: ID!): MutationResponse!
     rejectUser(userId: ID!): MutationResponse!
-    sendFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
-    acceptFriendRequest(senderId: ID!, receiverId: ID!): FriendRequestResponse!
-    rejectFriendRequest(senderId: ID!, receiverId: ID!): MutationResponse!
+    sendFriendRequest(friendRequestSenderId: ID!, friendRequestReceiverId: ID!): MutationResponse!
+    acceptFriendRequest(friendRequestAccepterId: ID!, friendRequestReceiverId: ID!): FriendRequestResponse!
+    rejectFriendRequest(friendRequestRejecterId: ID!, friendRequestReceiverId: ID!): MutationResponse!
     checkPendingNotifications: NotificationResponse!
     sendMessage(senderId: ID!, receiverId: ID!, content: String!, messageType: String!): Message!
     updateMessageStatus(messageId: ID!, deliveryStatus: String!): Message!
@@ -136,9 +142,9 @@ export const typeDefs = gql`
   }
 
   type Subscription {
-    friendRequestSent(receiverId: ID!): FriendRequestPayload!
-    friendRequestAccept(receiverId: ID!): FriendRequestPayload!
-    friendRequestReject(receiverId: ID!): FriendRequestPayload!
+    friendRequestSent(userId: ID!): FriendRequestSendResponse!
+    friendRequestAccept(userId: ID!): FriendRequestAcceptResponse!
+    friendRequestReject(userId: ID!): FriendRequestRejectResponse!
     newMessage(receiverId: ID!): Message!
     notification(receiverId: ID!): Notification!
   }

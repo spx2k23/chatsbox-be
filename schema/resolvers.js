@@ -243,36 +243,36 @@ export const resolvers = {
       }
     },
 
-    sendFriendRequest: async (_, { senderId, receiverId }, { pubsub }) => {
+    sendFriendRequest: async (_, { friendRequestSenderId, friendRequestReceiverId }, { pubsub }) => {
       try {
-        const sender = await UserModel.findById(senderId);
-        const receiver = await UserModel.findById(receiverId);
+        const friendRequestSender = await UserModel.findById(friendRequestSenderId);
+        const friendRequestReceiver = await UserModel.findById(friendRequestReceiverId);
 
-        if (!sender || !receiver) {
+        if (!friendRequestSender || !friendRequestReceiver) {
           return { success: false, message: 'User not found' };
         }
 
-        if (receiver.FriendRequestReceived.includes(senderId)) {
+        if (friendRequestReceiver.FriendRequestReceived.includes(friendRequestSenderId)) {
           return { success: false, message: 'Friend request already sent' };
         }
 
-        receiver.FriendRequestReceived.push(senderId);
-        sender.FriendRequestSend.push(receiverId);
+        friendRequestReceiver.FriendRequestReceived.push(friendRequestSenderId);
+        friendRequestSender.FriendRequestSend.push(friendRequestReceiverId);
 
-        await receiver.save();
-        await sender.save();
+        await friendRequestReceiver.save();
+        await friendRequestSender.save();
 
-        const typeMap = activeSubscriptions.get(receiverId);
+        const typeMap = activeSubscriptions.get(friendRequestReceiverId);
         const isSubscribedtoFriend = typeMap && typeMap.has("friendRequestSent") && typeMap.get("friendRequestSent").size > 0;
         
         if (isSubscribedtoFriend) {
-          pubsub.publish(`FRIEND_REQUEST_SENT_${receiverId}`, { friendRequestSent: { senderId, receiverId, sender, receiver } });
+          pubsub.publish(`FRIEND_REQUEST_SENT_${friendRequestReceiverId}`, { friendRequestSent: { friendRequestSenderId } });
         } else {
           await NotificationModel.create({
             type: 'FRIEND_REQUEST',
-            senderId,
+            sender: senderId,
             receiverId,
-            message: sender.Name+' has send you friend request',
+            message: friendRequestSender.Name+' has send you friend request',
           })
         }
 
@@ -283,64 +283,64 @@ export const resolvers = {
       }
     },
 
-    acceptFriendRequest: async (_, { senderId, receiverId }, { pubsub }) => {
+    acceptFriendRequest: async (_, { friendRequestAccepterId, friendRequestReceiverId }, { pubsub }) => {
       try {
-        const sender = await UserModel.findById(senderId);
-        const receiver = await UserModel.findById(receiverId);
+        const friendRequestAccepter = await UserModel.findById(friendRequestAccepterId);
+        const friendRequestReceiver = await UserModel.findById(friendRequestReceiverId);
 
-        if (!sender || !receiver) {
+        if (!friendRequestAccepter || !friendRequestReceiver) {
           return { success: false, message: 'User not found' };
         }
 
-        await UserModel.updateOne({ _id: receiverId }, { $pull: { FriendRequestSend: senderId } });
-        await UserModel.updateOne({ _id: senderId }, { $pull: { FriendRequestReceived: receiverId } });
+        await UserModel.updateOne({ _id: friendRequestReceiverId }, { $pull: { FriendRequestSend: friendRequestAccepterId } });
+        await UserModel.updateOne({ _id: friendRequestAccepterId }, { $pull: { FriendRequestReceived: friendRequestReceiverId } });
 
-        receiver.Friends.push(senderId);
-        sender.Friends.push(receiverId);
+        friendRequestReceiver.Friends.push(friendRequestAccepterId);
+        friendRequestAccepter.Friends.push(friendRequestReceiverId);
 
-        await receiver.save();
-        await sender.save();
+        await friendRequestReceiver.save();
+        await friendRequestAccepter.save();
 
-        const typeMap = activeSubscriptions.get(receiverId);
+        const typeMap = activeSubscriptions.get(friendRequestReceiverId);
         const isSubscribedtoFriend = typeMap && typeMap.has("friendRequestAccept") && typeMap.get("friendRequestAccept").size > 0;
 
         if (isSubscribedtoFriend) {
-          pubsub.publish(`FRIEND_REQUEST_ACCEPT_${receiverId}`, { friendRequestAccept: { senderId, receiverId, sender, receiver } });
+          pubsub.publish(`FRIEND_REQUEST_ACCEPT_${friendRequestReceiverId}`, { friendRequestAccept: { friendRequestAccepterId, friendRequestAccepter } });
         } else {
           const isSubscribed = typeMap && typeMap.has("notification") && typeMap.get("notification").size > 0;
           if(isSubscribed){
             const type = "FRIEND_REQUEST_ACCEPT"
-            pubsub.publish(`NOTIFICATION_${receiverId}`, { notification: { sender, receiverId, type } });
+            pubsub.publish(`NOTIFICATION_${friendRequestReceiverId}`, { notification: { friendRequestAccepter, friendRequestReceiverId, type } });
           } else {
             await NotificationModel.create({
               type: 'FRIEND_REQUEST_ACCEPT',
-              sender : senderId,
-              receiverId,
+              sender : friendRequestAccepterId,
+              receiverId: friendRequestReceiverId,
               message: sender.Name + ' has accepted your friend request',
             });
           }
         }
 
-        return { success: true, message: 'Friend request accepted successfully', sender };
+        return { success: true, message: 'Friend request accepted successfully', user: friendRequestReceiver };
       } catch (error) {
         console.error('Error sending friend request:', error);
         return { success: false, message: 'Failed to accept friend request' };
       }
     },
 
-    rejectFriendRequest: async (_, { senderId, receiverId }, { pubsub }) => {
+    rejectFriendRequest: async (_, { friendRequestRejecterId, friendRequestReceiverId }, { pubsub }) => {
       try {
-        const sender = await UserModel.findById(senderId);
-        const receiver = await UserModel.findById(receiverId);
+        const friendRequestRejecter = await UserModel.findById(friendRequestRejecterId);
+        const friendRequestReceiver = await UserModel.findById(friendRequestReceiverId);
 
-        if (!sender || !receiver) {
+        if (!friendRequestRejecter || !friendRequestReceiver) {
           return { success: false, message: 'User not found' };
         }
         
-        await UserModel.updateOne({ _id: receiverId }, { $pull: { FriendRequestSend: senderId } });
-        await UserModel.updateOne({ _id: senderId }, { $pull: { FriendRequestReceived: receiverId } });
+        await UserModel.updateOne({ _id: friendRequestReceiverId }, { $pull: { FriendRequestSend: friendRequestRejecterId } });
+        await UserModel.updateOne({ _id: friendRequestRejecterId }, { $pull: { FriendRequestReceived: friendRequestReceiverId } });
 
-        pubsub.publish(`FRIEND_REQUEST_REJECT_${receiverId}`, { friendRequestReject: { senderId, receiverId, sender, receiver } });
+        pubsub.publish(`FRIEND_REQUEST_REJECT_${friendRequestReceiverId}`, { friendRequestReject: { friendRequestRejecterId } });
 
         return { success: true, message: 'Friend request rejected successfully' };
       } catch (error) {
@@ -420,12 +420,12 @@ export const resolvers = {
   Subscription: {
 
     friendRequestSent: {
-      subscribe: (_, { receiverId }, { pubsub, connection }) => {
+      subscribe: (_, { userId }, { pubsub, connection }) => {
     
-        if (!activeSubscriptions.has(receiverId)) {
-          activeSubscriptions.set(receiverId, new Map());
+        if (!activeSubscriptions.has(userId)) {
+          activeSubscriptions.set(userId, new Map());
         }
-        const typeMap = activeSubscriptions.get(receiverId);
+        const typeMap = activeSubscriptions.get(userId);
         if (!typeMap.has("friendRequestSent")) {
           typeMap.set("friendRequestSent", new Set());
         }
@@ -433,10 +433,10 @@ export const resolvers = {
         connections.add(connection);
 
         console.log("Active subscriptions:", activeSubscriptions);
-        return pubsub.asyncIterator([`FRIEND_REQUEST_SENT_${receiverId}`]);
+        return pubsub.asyncIterator([`FRIEND_REQUEST_SENT_${userId}`]);
       },
       resolve: (payload, args) => {
-        return payload.friendRequestSent.receiverId === args.receiverId
+        return payload.friendRequestSent.userId === args.userId
           ? payload.friendRequestSent
           : null;
       },
@@ -444,11 +444,11 @@ export const resolvers = {
     
 
     friendRequestAccept: {
-      subscribe: (_, { receiverId }, { pubsub, connection }) => {
-        if (!activeSubscriptions.has(receiverId)) {
-          activeSubscriptions.set(receiverId, new Map());
+      subscribe: (_, { userId }, { pubsub, connection }) => {
+        if (!activeSubscriptions.has(userId)) {
+          activeSubscriptions.set(userId, new Map());
         }
-        const typeMap = activeSubscriptions.get(receiverId);
+        const typeMap = activeSubscriptions.get(userId);
         if (!typeMap.has("friendRequestAccept")) {
           typeMap.set("friendRequestAccept", new Set());
         }
@@ -456,21 +456,21 @@ export const resolvers = {
         connections.add(connection);
 
         console.log("Active subscriptions:", activeSubscriptions);
-        return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${receiverId}`]);
+        return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${userId}`]);
       },
       resolve: (payload, args) => {
-        return payload.friendRequestAccept.receiverId === args.receiverId
+        return payload.friendRequestAccept.userId === args.userId
           ? payload.friendRequestAccept
           : null;
       },
     },    
 
     friendRequestReject: {
-      subscribe: (_, { receiverId }, { pubsub }) => {
-        return pubsub.asyncIterator([`FRIEND_REQUEST_REJECT_${receiverId}`]);
+      subscribe: (_, { userId }, { pubsub }) => {
+        return pubsub.asyncIterator([`FRIEND_REQUEST_REJECT_${userId}`]);
       },
       resolve: (payload, args) => {
-        return payload.friendRequestReject.receiverId === args.receiverId
+        return payload.friendRequestReject.userId === args.userId
           ? payload.friendRequestReject
           :null;
       },
