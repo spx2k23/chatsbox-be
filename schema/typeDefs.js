@@ -52,12 +52,11 @@ export const typeDefs = gql`
   }
 
   type Notification {
-    id: ID!
-    receiverId: ID!
-    sender: User
+    id: ID
+    userId: ID!
+    user: User
     type: String!
-    message: String!
-    createdAt: String!
+    createdAt: String
   }
 
   type MutationResponse {
@@ -145,7 +144,7 @@ export const typeDefs = gql`
     friendRequestSent(userId: ID!): FriendRequestSendResponse!
     friendRequestAccept(userId: ID!): FriendRequestAcceptResponse!
     friendRequestReject(userId: ID!): FriendRequestRejectResponse!
+    notification(userId: ID!): Notification!
     newMessage(receiverId: ID!): Message!
-    notification(receiverId: ID!): Notification!
   }
 `;

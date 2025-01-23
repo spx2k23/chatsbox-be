@@ -268,12 +268,17 @@ export const resolvers = {
         if (isSubscribedtoFriend) {
           pubsub.publish(`FRIEND_REQUEST_SENT_${friendRequestReceiverId}`, { friendRequestSent: { friendRequestSenderId } });
         } else {
-          await NotificationModel.create({
-            type: 'FRIEND_REQUEST',
-            sender: senderId,
-            receiverId,
-            message: friendRequestSender.Name+' has send you friend request',
-          })
+          const isSubscribed = typeMap && typeMap.has("notification") && typeMap.get("notification").size > 0;
+          if(isSubscribed){
+            pubsub.publish(`NOTIFICATION_${friendRequestReceiverId}`, { notification: { userId: friendRequestSenderId, user: friendRequestSender, type: "SEND_FRIEND_REQUEST" }});
+          } else {
+            await NotificationModel.create({
+              type: 'FRIEND_REQUEST',
+              sender: senderId,
+              receiverId,
+              message: friendRequestSender.Name+' has send you friend request',
+            })
+          }
         }
 
         return { success: true, message: 'Friend request sent successfully' };
@@ -309,8 +314,7 @@ export const resolvers = {
         } else {
           const isSubscribed = typeMap && typeMap.has("notification") && typeMap.get("notification").size > 0;
           if(isSubscribed){
-            const type = "FRIEND_REQUEST_ACCEPT"
-            pubsub.publish(`NOTIFICATION_${friendRequestReceiverId}`, { notification: { friendRequestAccepter, friendRequestReceiverId, type } });
+            pubsub.publish(`NOTIFICATION_${friendRequestReceiverId}`, { notification: { userId: friendRequestAccepterId, user: friendRequestAccepter, type: "ACCEPT_FRIEND_REQUEST" }});
           } else {
             await NotificationModel.create({
               type: 'FRIEND_REQUEST_ACCEPT',
@@ -436,7 +440,7 @@ export const resolvers = {
         return pubsub.asyncIterator([`FRIEND_REQUEST_SENT_${userId}`]);
       },
       resolve: (payload, args) => {
-        return payload.friendRequestSent.userId === args.userId
+        return payload.friendRequestSent.friendRequestSenderId === args.userId
           ? payload.friendRequestSent
           : null;
       },
@@ -459,18 +463,18 @@ export const resolvers = {
         return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${userId}`]);
       },
       resolve: (payload, args) => {
-        return payload.friendRequestAccept.userId === args.userId
+        return payload.friendRequestAccept.friendRequestAccepterId === args.userId
           ? payload.friendRequestAccept
           : null;
       },
-    },    
+    },
 
     friendRequestReject: {
       subscribe: (_, { userId }, { pubsub }) => {
         return pubsub.asyncIterator([`FRIEND_REQUEST_REJECT_${userId}`]);
       },
       resolve: (payload, args) => {
-        return payload.friendRequestReject.userId === args.userId
+        return payload.friendRequestReject.friendRequestRejecterId === args.userId
           ? payload.friendRequestReject
           :null;
       },
@@ -485,20 +489,21 @@ export const resolvers = {
 
     notification : {
       subscribe: (_, { userId }, { pubsub, connection }) => {
-        if (!activeSubscriptions.has(receiverId)) {
-          activeSubscriptions.set(receiverId, new Map());
+        if (!activeSubscriptions.has(userId)) {
+          activeSubscriptions.set(userId, new Map());
         }
-        const typeMap = activeSubscriptions.get(receiverId);
+        const typeMap = activeSubscriptions.get(userId);
         if (!typeMap.has("notification")) {
           typeMap.set("notification", new Set());
         }
         const connections = typeMap.get("notification");
         connections.add(connection);
 
+        console.log("Active subscriptions:", activeSubscriptions);
         return pubsub.asyncIterator([`NOTIFICATION_${userId}`]);
       },
       resolve: (payload, args) => {
-        return payload.notification.receiverId === args.receiverId
+        return payload.notification.userId === args.userId
           ? payload.notification
           : null;
       },

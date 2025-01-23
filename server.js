@@ -12,6 +12,7 @@ import { typeDefs } from "./schema/typeDefs.js";
 import { resolvers } from "./schema/resolvers.js";
 import { mongoUrl } from "./Config/Config.js";
 import jwt from 'jsonwebtoken';
+import { log } from "console";
 
 dotenv.config();
 
@@ -97,7 +98,11 @@ async function startServer() {
     subscribe,
     context,
     onDisconnect: (ctx) => {
-      activeSubscriptions.forEach((typeMap, receiverId) => {
+      const token = ctx.connectionParams.authorization?.split(' ')[1] || '';
+      const user = jwt.verify(token, 'secretkey');
+      const userId = user.id;
+      if(userId && activeSubscriptions.has(userId)){
+        const typeMap = activeSubscriptions.get(userId);
         typeMap.forEach((connections, type) => {
           connections.delete(ctx.connection);
           if (connections.size === 0) {
@@ -105,9 +110,10 @@ async function startServer() {
           }
         });
         if (typeMap.size === 0) {
-          activeSubscriptions.delete(receiverId);
+          activeSubscriptions.delete(userId);
         }
-      });
+      }
+      console.log(activeSubscriptions);
     },
   }, wsServer);
 
