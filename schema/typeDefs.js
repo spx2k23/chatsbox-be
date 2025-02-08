@@ -38,6 +38,30 @@ export const typeDefs = gql`
     removedFromOrg: Boolean!
   }
 
+  type Announcement {
+    id: ID!
+    createdBy: User!
+    messages: [AnnouncementMessage!]!
+    createdAt: String!
+  }
+
+  type AnnouncementMessage {
+    type: String!
+    content: String!
+    order: Int!
+  }
+
+  input CreateAnnouncementInput {
+    createdBy: ID!
+    messages: [MessageInput!]!
+  }
+
+  input MessageInput {
+    type: String!
+    content: String!
+    order: Int!
+  }
+
   type Message {
     id: ID!
     sender: User!
@@ -77,17 +101,11 @@ export const typeDefs = gql`
     user: User
   }
 
-  type FriendRequestSendResponse{
-    friendRequestSenderId: ID!
-  }
-
-  type FriendRequestAcceptResponse {
-    friendRequestAccepterId: ID!
-    friendRequestAccepter: User!
-  }
-
-  type FriendRequestRejectResponse {
-    friendRequestRejecterId: ID!
+  type FriendsUpdateResponse{
+    Type: String!
+    FriendsUpdateReceiverId: ID!
+    ResponceReceiverId: ID!
+    Friend: User
   }
 
   type NotificationResponse {
@@ -100,6 +118,7 @@ export const typeDefs = gql`
     getUnapprovedUsers(organizationId: ID!): [User]
     getUsersInOrganization(organizationId: ID!): [User!]!
     getFriends: [User!]!
+    announcements: [Announcement!]!
     getMessages(senderId: ID!, receiverId: ID!): [Message!]!
   }
 
@@ -133,6 +152,7 @@ export const typeDefs = gql`
     sendFriendRequest(friendRequestSenderId: ID!, friendRequestReceiverId: ID!): MutationResponse!
     acceptFriendRequest(friendRequestAccepterId: ID!, friendRequestReceiverId: ID!): FriendRequestResponse!
     rejectFriendRequest(friendRequestRejecterId: ID!, friendRequestReceiverId: ID!): MutationResponse!
+    createAnnouncement(input : CreateAnnouncementInput!): MutationResponse!
     checkPendingNotifications: NotificationResponse!
     sendMessage(senderId: ID!, receiverId: ID!, content: String!, messageType: String!): Message!
     updateMessageStatus(messageId: ID!, deliveryStatus: String!): Message!
@@ -141,9 +161,7 @@ export const typeDefs = gql`
   }
 
   type Subscription {
-    friendRequestSent(userId: ID!): FriendRequestSendResponse!
-    friendRequestAccept(userId: ID!): FriendRequestAcceptResponse!
-    friendRequestReject(userId: ID!): FriendRequestRejectResponse!
+    friendsUpdate(userId: ID!): FriendsUpdateResponse!
     notification(userId: ID!): Notification!
     newMessage(receiverId: ID!): Message!
   }

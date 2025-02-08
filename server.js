@@ -41,6 +41,25 @@ const databaseConnetion = () => {
 
 export const activeSubscriptions = new Map(); 
 
+export const removeSubscription = (userId, type, connection) => {
+  console.log("kkk");
+  
+  if (activeSubscriptions.has(userId)) {
+    const typeMap = activeSubscriptions.get(userId);
+
+    if (typeMap.has(type)) {
+      const connections = typeMap.get(type);
+      connections.delete(connection);
+
+      if (connections.size === 0) {
+        typeMap.delete(type);
+      }
+    }
+  }
+  console.log(activeSubscriptions);
+  
+}; 
+
 const context = ({ req, connection }) => {
   if (connection) {
     const token = connection.context.authorization?.split(' ')[1] || '';
@@ -97,25 +116,32 @@ async function startServer() {
     execute,
     subscribe,
     context,
-    onDisconnect: (ctx) => {
-      const token = ctx.connectionParams.authorization?.split(' ')[1] || '';
-      const user = jwt.verify(token, 'secretkey');
-      const userId = user.id;
-      if(userId && activeSubscriptions.has(userId)){
-        const typeMap = activeSubscriptions.get(userId);
-        typeMap.forEach((connections, type) => {
-          connections.delete(ctx.connection);
-          if (connections.size === 0) {
-            typeMap.delete(type);
+    subscriptions: {
+      onConnect: (connectionParams, webSocket, context) => {
+        console.log(webSocket.id);
+      },
+      onDisconnect: (ctx) => {
+        const token = ctx.connectionParams.authorization?.split(' ')[1] || '';
+        const user = jwt.verify(token, 'secretkey');
+        const userId = user.id;
+        if(userId && activeSubscriptions.has(userId)){
+          const typeMap = activeSubscriptions.get(userId);
+          typeMap.forEach((connections, type) => {
+            console.log(type);
+            console.log(ctx.connection);
+            connections.delete(ctx.connection);
+            if (connections.size === 0) {
+              typeMap.delete(type);
+            }
+          });
+          if (typeMap.size === 0) {
+            activeSubscriptions.delete(userId);
           }
-        });
-        if (typeMap.size === 0) {
-          activeSubscriptions.delete(userId);
         }
-      }
-      console.log(activeSubscriptions);
+        console.log(activeSubscriptions);
+      },
     },
-  }, wsServer);
+  }, wsServer); 
 
   httpServer.listen({ port: PORT }, () => {
     console.log(`🚀 Server ready at http://localhost:${PORT}${server.graphqlPath}`);

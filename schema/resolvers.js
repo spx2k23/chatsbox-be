@@ -1,10 +1,11 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { activeSubscriptions } from '../server.js'
+import { activeSubscriptions, removeSubscription } from '../server.js'
 import { UserModel } from '../models/User.js';
 import { MessageModel } from "../models/Message.js";
 import { OrganizationModel } from '../models/Organization.js';
 import { NotificationModel } from '../models/Notification.js';
+import { AnnouncementModel } from "../models/Announcements.js";
 
 export const resolvers = {
   Query: {
@@ -105,6 +106,16 @@ export const resolvers = {
       } catch (error) {
         console.error('Error fetching friends:', error);
         throw new Error('Failed to fetch friends');
+      }
+    },
+
+    announcements: async () => {
+      try {
+        const announcements = await AnnouncementModel.find().populate('createdBy');
+        return announcements;
+      } catch (error) {
+        console.error('Error fetching announcements:', error);
+        throw new Error('Failed to fetch announcements');
       }
     },
 
@@ -263,10 +274,10 @@ export const resolvers = {
         await friendRequestSender.save();
 
         const typeMap = activeSubscriptions.get(friendRequestReceiverId);
-        const isSubscribedtoFriend = typeMap && typeMap.has("friendRequestSent") && typeMap.get("friendRequestSent").size > 0;
+        const isSubscribedtoFriend = typeMap && typeMap.has("friendsUpdate") && typeMap.get("friendsUpdate").size > 0;
         
         if (isSubscribedtoFriend) {
-          pubsub.publish(`FRIEND_REQUEST_SENT_${friendRequestReceiverId}`, { friendRequestSent: { friendRequestSenderId } });
+          pubsub.publish(`FRIEND_REQUEST_UPDATES_${friendRequestReceiverId}`, { friendsUpdate: { Type: "SEND_FRIEND_REQUEST", ResponceReceiverId: friendRequestReceiverId,  FriendsUpdateReceiverId: friendRequestSenderId } });
         } else {
           const isSubscribed = typeMap && typeMap.has("notification") && typeMap.get("notification").size > 0;
           if(isSubscribed){
@@ -307,10 +318,10 @@ export const resolvers = {
         await friendRequestAccepter.save();
 
         const typeMap = activeSubscriptions.get(friendRequestReceiverId);
-        const isSubscribedtoFriend = typeMap && typeMap.has("friendRequestAccept") && typeMap.get("friendRequestAccept").size > 0;
+        const isSubscribedtoFriend = typeMap && typeMap.has("friendsUpdate") && typeMap.get("friendsUpdate").size > 0;
 
         if (isSubscribedtoFriend) {
-          pubsub.publish(`FRIEND_REQUEST_ACCEPT_${friendRequestReceiverId}`, { friendRequestAccept: { friendRequestAccepterId, friendRequestAccepter } });
+          pubsub.publish(`FRIEND_REQUEST_UPDATES_${friendRequestReceiverId}`, { friendsUpdate: { Type: "ACCEPT_FRIEND_REQUEST", ResponceReceiverId: friendRequestReceiverId,  FriendsUpdateReceiverId: friendRequestAccepterId, Friend: friendRequestAccepter } });
         } else {
           const isSubscribed = typeMap && typeMap.has("notification") && typeMap.get("notification").size > 0;
           if(isSubscribed){
@@ -344,7 +355,7 @@ export const resolvers = {
         await UserModel.updateOne({ _id: friendRequestReceiverId }, { $pull: { FriendRequestSend: friendRequestRejecterId } });
         await UserModel.updateOne({ _id: friendRequestRejecterId }, { $pull: { FriendRequestReceived: friendRequestReceiverId } });
 
-        pubsub.publish(`FRIEND_REQUEST_REJECT_${friendRequestReceiverId}`, { friendRequestReject: { friendRequestRejecterId } });
+        pubsub.publish(`FRIEND_REQUEST_UPDATES_${friendRequestReceiverId}`, { friendsUpdate: { Type: "REJECT_FRIEND_REQUEST", ResponceReceiverId: friendRequestReceiverId, FriendsUpdateReceiverId: friendRequestRejecterId } });
 
         return { success: true, message: 'Friend request rejected successfully' };
       } catch (error) {
@@ -387,6 +398,28 @@ export const resolvers = {
       }
     },
 
+    createAnnouncement: async (_, __, { input }) => {
+      try {
+        const { createdBy, messages } = input;
+
+        if (!mongoose.Types.ObjectId.isValid(createdBy)) {
+          throw new Error('Invalid createdBy ID');
+        }
+
+        const newAnnouncement = await AnnouncementModel.create({
+          createdBy,
+          messages,
+        });
+
+        await newAnnouncement.populate('createdBy');
+
+        return { success: true, message: 'Announcement added successfully' };
+      } catch (error) {
+        console.error('Error creating announcement:', error);
+        throw new Error('Failed to create announcement');
+      }
+    },
+
     sendMessage: async (_, { senderId, receiverId, content, messageType }) => {
       const newMessage = new MessageModel({
         Sender: senderId,
@@ -423,60 +456,35 @@ export const resolvers = {
 
   Subscription: {
 
-    friendRequestSent: {
+    friendsUpdate: {
       subscribe: (_, { userId }, { pubsub, connection }) => {
+
+        if (!pubsub) {
+          throw new Error("PubSub instance is undefined.");
+        }
     
         if (!activeSubscriptions.has(userId)) {
           activeSubscriptions.set(userId, new Map());
         }
         const typeMap = activeSubscriptions.get(userId);
-        if (!typeMap.has("friendRequestSent")) {
-          typeMap.set("friendRequestSent", new Set());
+        if (!typeMap.has("friendsUpdate")) {
+          typeMap.set("friendsUpdate", new Set());
         }
-        const connections = typeMap.get("friendRequestSent");
+        const connections = typeMap.get("friendsUpdate");
         connections.add(connection);
 
         console.log("Active subscriptions:", activeSubscriptions);
-        return pubsub.asyncIterator([`FRIEND_REQUEST_SENT_${userId}`]);
+        const asyncIterator = pubsub.asyncIterator([`FRIEND_REQUEST_UPDATES_${userId}`]);
+        asyncIterator.return = () => {
+          removeSubscription(userId,"friendsUpdate",connection);
+          return Promise.resolve({value: undefined, done:true});
+        };
+        return asyncIterator;
       },
       resolve: (payload, args) => {
-        return payload.friendRequestSent.friendRequestSenderId === args.userId
-          ? payload.friendRequestSent
+        return payload.friendsUpdate.ResponceReceiverId === args.userId
+          ? payload.friendsUpdate
           : null;
-      },
-    },
-    
-
-    friendRequestAccept: {
-      subscribe: (_, { userId }, { pubsub, connection }) => {
-        if (!activeSubscriptions.has(userId)) {
-          activeSubscriptions.set(userId, new Map());
-        }
-        const typeMap = activeSubscriptions.get(userId);
-        if (!typeMap.has("friendRequestAccept")) {
-          typeMap.set("friendRequestAccept", new Set());
-        }
-        const connections = typeMap.get("friendRequestAccept");
-        connections.add(connection);
-
-        console.log("Active subscriptions:", activeSubscriptions);
-        return pubsub.asyncIterator([`FRIEND_REQUEST_ACCEPT_${userId}`]);
-      },
-      resolve: (payload, args) => {
-        return payload.friendRequestAccept.friendRequestAccepterId === args.userId
-          ? payload.friendRequestAccept
-          : null;
-      },
-    },
-
-    friendRequestReject: {
-      subscribe: (_, { userId }, { pubsub }) => {
-        return pubsub.asyncIterator([`FRIEND_REQUEST_REJECT_${userId}`]);
-      },
-      resolve: (payload, args) => {
-        return payload.friendRequestReject.friendRequestRejecterId === args.userId
-          ? payload.friendRequestReject
-          :null;
       },
     },
 
