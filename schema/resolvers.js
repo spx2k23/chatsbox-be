@@ -1,13 +1,23 @@
 import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
-import { activeSubscriptions, removeSubscription } from '../server.js'
+import cloudinary from 'cloudinary';
+import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs";
 import { UserModel } from '../models/User.js';
 import { MessageModel } from "../models/Message.js";
 import { OrganizationModel } from '../models/Organization.js';
 import { NotificationModel } from '../models/Notification.js';
 import { AnnouncementModel } from "../models/Announcements.js";
+import { activeSubscriptions, removeSubscription } from '../server.js';
+
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export const resolvers = {
+  Upload: GraphQLUpload,
+
   Query: {
 
     login: async (_, { Email, Password }) => {      
@@ -398,25 +408,61 @@ export const resolvers = {
       }
     },
 
-    createAnnouncement: async (_, __, { input }) => {
+    createAnnouncement: async (_, { createdBy, messages }) => {
       try {
-        const { createdBy, messages } = input;
+        const processedMessages = await Promise.all(
+          messages.map(async (message, index) => {
+            if (message.file) {
+              // Handle file upload
+              const { createReadStream, filename, mimetype } = await message.file;
 
-        if (!mongoose.Types.ObjectId.isValid(createdBy)) {
-          throw new Error('Invalid createdBy ID');
-        }
+              const stream = createReadStream();
+              const cloudinaryResponse = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.v2.uploader.upload_stream(
+                  { resource_type: 'auto' },
+                  (error, result) => {
+                    if (error) return reject(error);
+                    resolve(result);
+                  }
+                );
 
-        const newAnnouncement = await AnnouncementModel.create({
+                stream.pipe(uploadStream);
+              });
+
+              return {
+                type: message.type,
+                content: cloudinaryResponse.secure_url,
+                order: message.order || index + 1,
+              };
+            }
+
+            // Handle text content
+            return {
+              type: message.type,
+              content: message.content || '',
+              order: message.order || index + 1,
+            };
+          })
+        );
+
+        // Save to database
+        const announcement = new AnnouncementModel({
           createdBy,
-          messages,
+          messages: processedMessages,
         });
 
-        await newAnnouncement.populate('createdBy');
+        await announcement.save();
 
-        return { success: true, message: 'Announcement added successfully' };
+        return {
+          success: true,
+          message: 'Announcement created successfully.',
+        };
       } catch (error) {
         console.error('Error creating announcement:', error);
-        throw new Error('Failed to create announcement');
+        return {
+          success: false,
+          message: 'Failed to create announcement.',
+        };
       }
     },
 

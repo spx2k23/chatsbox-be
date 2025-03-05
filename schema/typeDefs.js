@@ -38,6 +38,8 @@ export const typeDefs = gql`
     removedFromOrg: Boolean!
   }
 
+  scalar Upload
+
   type Announcement {
     id: ID!
     createdBy: User!
@@ -51,14 +53,10 @@ export const typeDefs = gql`
     order: Int!
   }
 
-  input CreateAnnouncementInput {
-    createdBy: ID!
-    messages: [MessageInput!]!
-  }
-
   input MessageInput {
     type: String!
-    content: String!
+    content: String
+    file: Upload
     order: Int!
   }
 
@@ -152,7 +150,7 @@ export const typeDefs = gql`
     sendFriendRequest(friendRequestSenderId: ID!, friendRequestReceiverId: ID!): MutationResponse!
     acceptFriendRequest(friendRequestAccepterId: ID!, friendRequestReceiverId: ID!): FriendRequestResponse!
     rejectFriendRequest(friendRequestRejecterId: ID!, friendRequestReceiverId: ID!): MutationResponse!
-    createAnnouncement(input : CreateAnnouncementInput!): MutationResponse!
+    createAnnouncement(createdBy: ID!, messages: [MessageInput!]!): MutationResponse!
     checkPendingNotifications: NotificationResponse!
     sendMessage(senderId: ID!, receiverId: ID!, content: String!, messageType: String!): Message!
     updateMessageStatus(messageId: ID!, deliveryStatus: String!): Message!

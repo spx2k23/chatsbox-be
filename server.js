@@ -13,6 +13,7 @@ import { resolvers } from "./schema/resolvers.js";
 import { mongoUrl } from "./Config/Config.js";
 import jwt from 'jsonwebtoken';
 import { log } from "console";
+import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs";
 
 dotenv.config();
 
@@ -23,6 +24,7 @@ const pubsub = new PubSub();
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
+app.use(graphqlUploadExpress());
 
 const schema = makeExecutableSchema({
   typeDefs,
@@ -42,7 +44,6 @@ const databaseConnetion = () => {
 export const activeSubscriptions = new Map(); 
 
 export const removeSubscription = (userId, type, connection) => {
-  console.log("kkk");
   
   if (activeSubscriptions.has(userId)) {
     const typeMap = activeSubscriptions.get(userId);
