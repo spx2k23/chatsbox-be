@@ -12,7 +12,6 @@ import { typeDefs } from "./schema/typeDefs.js";
 import { resolvers } from "./schema/resolvers.js";
 import { mongoUrl } from "./Config/Config.js";
 import jwt from 'jsonwebtoken';
-import { log } from "console";
 import graphqlUploadExpress from "graphql-upload/graphqlUploadExpress.mjs";
 
 dotenv.config();
