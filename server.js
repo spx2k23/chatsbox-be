@@ -28,6 +28,7 @@ app.use(graphqlUploadExpress());
 const schema = makeExecutableSchema({
   typeDefs,
   resolvers,
+  uploads: true
 });
 
 const databaseConnetion = () => {

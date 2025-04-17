@@ -410,9 +410,12 @@ export const resolvers = {
 
     createAnnouncement: async (_, { createdBy, messages }) => {
       try {
+        console.log(messages);
+        
         const processedMessages = await Promise.all(
           messages.map(async (message, index) => {
             if (message.file) {
+              console.log(message.file);
               // Handle file upload
               const { createReadStream, filename, mimetype } = await message.file;
 
