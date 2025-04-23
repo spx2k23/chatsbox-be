@@ -1,5 +1,5 @@
 {
-  "name": "chat-be",
+  "name": "chatbox-be",
   "version": "1.0.0",
   "description": "Back-end functionality for chat application",
   "main": "server.js",

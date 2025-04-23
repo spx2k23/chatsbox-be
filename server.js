@@ -23,7 +23,7 @@ const pubsub = new PubSub();
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ limit: '10mb', extended: true }));
-app.use(graphqlUploadExpress());
+app.use(graphqlUploadExpress({ maxFileSize: 10000000, maxFiles: 10 }));
 
 const schema = makeExecutableSchema({
   typeDefs,
