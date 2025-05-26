@@ -10,6 +10,7 @@ import { NotificationModel } from '../models/Notification.js';
 import { AnnouncementModel } from "../models/Announcements.js";
 import { activeSubscriptions, removeSubscription } from '../server.js';
 import * as dotenv from 'dotenv';
+
 dotenv.config();
 
 cloudinary.config({
@@ -23,7 +24,7 @@ export const resolvers = {
 
   Query: {
 
-    login: async (_, { Email, Password }) => {      
+    login: async (_, { Email, Password }) => {
       const user = await UserModel.findOne({ Email }).populate('Organization.OrganizationId');
       if (!user) {
         return {
@@ -47,7 +48,7 @@ export const resolvers = {
           token: null
         };
       }
-      const token = jwt.sign({ id: user.id ,superAdmin: user.SuperAdmin}, 'secretkey', { expiresIn: '7d' });
+      const token = jwt.sign({ id: user.id, superAdmin: user.SuperAdmin }, 'secretkey', { expiresIn: '7d' });
       return {
         success: true,
         message: 'Login successful',
@@ -60,7 +61,7 @@ export const resolvers = {
       try {
         const users = await UserModel.find({ isApproved: false, Organization: organizationId });
         return users;
-        
+
       } catch (error) {
         console.error('Error fetching unapproved users:', error);
         throw new Error('Failed to fetch unapproved users');
@@ -73,7 +74,7 @@ export const resolvers = {
           throw new Error('Missing required parameters');
         }
         const userId = user.id;
-        
+
         const users = await UserModel.find({
           Organization: {
             $elemMatch: {
@@ -84,12 +85,12 @@ export const resolvers = {
           },
           _id: { $ne: userId },
         });
-    
+
         return users.map((otherUser) => {
           const isFriend = otherUser.Friends.some(friend => friend.equals(userId));
           const isRequestSent = otherUser.FriendRequestReceived.some(request => request.equals(userId));
           const isRequestReceived = otherUser.FriendRequestSend.some(request => request.equals(userId));
-    
+
           return {
             id: otherUser._id.toString(),
             FirstName: otherUser.FirstName,
@@ -108,7 +109,7 @@ export const resolvers = {
         throw new Error('Failed to fetch users');
       }
     },
-    
+
     getFriends: async (_, __, { user }) => {
       try {
         const currentUser = await UserModel.findById(user.id).populate('Friends');
@@ -288,19 +289,19 @@ export const resolvers = {
 
         const typeMap = activeSubscriptions.get(friendRequestReceiverId);
         const isSubscribedtoFriend = typeMap && typeMap.has("friendsUpdate") && typeMap.get("friendsUpdate").size > 0;
-        
+
         if (isSubscribedtoFriend) {
-          pubsub.publish(`FRIEND_REQUEST_UPDATES_${friendRequestReceiverId}`, { friendsUpdate: { Type: "SEND_FRIEND_REQUEST", ResponceReceiverId: friendRequestReceiverId,  FriendsUpdateReceiverId: friendRequestSenderId } });
+          pubsub.publish(`FRIEND_REQUEST_UPDATES_${friendRequestReceiverId}`, { friendsUpdate: { Type: "SEND_FRIEND_REQUEST", ResponceReceiverId: friendRequestReceiverId, FriendsUpdateReceiverId: friendRequestSenderId } });
         } else {
           const isSubscribed = typeMap && typeMap.has("notification") && typeMap.get("notification").size > 0;
-          if(isSubscribed){
-            pubsub.publish(`NOTIFICATION_${friendRequestReceiverId}`, { notification: { userId: friendRequestSenderId, user: friendRequestSender, type: "SEND_FRIEND_REQUEST" }});
+          if (isSubscribed) {
+            pubsub.publish(`NOTIFICATION_${friendRequestReceiverId}`, { notification: { userId: friendRequestSenderId, user: friendRequestSender, type: "SEND_FRIEND_REQUEST" } });
           } else {
             await NotificationModel.create({
               type: 'FRIEND_REQUEST',
               sender: senderId,
               receiverId,
-              message: friendRequestSender.Name+' has send you friend request',
+              message: friendRequestSender.Name + ' has send you friend request',
             })
           }
         }
@@ -334,15 +335,15 @@ export const resolvers = {
         const isSubscribedtoFriend = typeMap && typeMap.has("friendsUpdate") && typeMap.get("friendsUpdate").size > 0;
 
         if (isSubscribedtoFriend) {
-          pubsub.publish(`FRIEND_REQUEST_UPDATES_${friendRequestReceiverId}`, { friendsUpdate: { Type: "ACCEPT_FRIEND_REQUEST", ResponceReceiverId: friendRequestReceiverId,  FriendsUpdateReceiverId: friendRequestAccepterId, Friend: friendRequestAccepter } });
+          pubsub.publish(`FRIEND_REQUEST_UPDATES_${friendRequestReceiverId}`, { friendsUpdate: { Type: "ACCEPT_FRIEND_REQUEST", ResponceReceiverId: friendRequestReceiverId, FriendsUpdateReceiverId: friendRequestAccepterId, Friend: friendRequestAccepter } });
         } else {
           const isSubscribed = typeMap && typeMap.has("notification") && typeMap.get("notification").size > 0;
-          if(isSubscribed){
-            pubsub.publish(`NOTIFICATION_${friendRequestReceiverId}`, { notification: { userId: friendRequestAccepterId, user: friendRequestAccepter, type: "ACCEPT_FRIEND_REQUEST" }});
+          if (isSubscribed) {
+            pubsub.publish(`NOTIFICATION_${friendRequestReceiverId}`, { notification: { userId: friendRequestAccepterId, user: friendRequestAccepter, type: "ACCEPT_FRIEND_REQUEST" } });
           } else {
             await NotificationModel.create({
               type: 'FRIEND_REQUEST_ACCEPT',
-              sender : friendRequestAccepterId,
+              sender: friendRequestAccepterId,
               receiverId: friendRequestReceiverId,
               message: sender.Name + ' has accepted your friend request',
             });
@@ -364,7 +365,7 @@ export const resolvers = {
         if (!friendRequestRejecter || !friendRequestReceiver) {
           return { success: false, message: 'User not found' };
         }
-        
+
         await UserModel.updateOne({ _id: friendRequestReceiverId }, { $pull: { FriendRequestSend: friendRequestRejecterId } });
         await UserModel.updateOne({ _id: friendRequestRejecterId }, { $pull: { FriendRequestReceived: friendRequestReceiverId } });
 
@@ -377,14 +378,14 @@ export const resolvers = {
       }
     },
 
-    checkPendingNotifications: async (_, __, {userId}) => {
+    checkPendingNotifications: async (_, __, { userId }) => {
       try {
         const pendingNotifications = await NotificationModel.find({ receiverId: userId })
-        .populate('sender', 'id FirstName LastName Email ProfilePicture MobileNumber');
+          .populate('sender', 'id FirstName LastName Email ProfilePicture MobileNumber');
 
         await NotificationModel.deleteMany({ receiverId: userId });
 
-        return {success: true, pendingNotifications }
+        return { success: true, pendingNotifications }
       } catch (error) {
         console.error('Error fetching notifications:', error);
         return { success: false, pendingNotifications: [] };
@@ -411,128 +412,63 @@ export const resolvers = {
       }
     },
 
-    // createAnnouncement: async (_, { createdBy, messages }) => {
-    //   try {
-    //     console.log(messages);
-    //     const processedMessages = await Promise.all(
-    //       messages.map(async (message, index) => {
-    //         if (message.type === 'image') {
-    //           let stream, filename, mimetype;
+    createAnnouncement: async (_, { createdBy, messages }) => {
+      try {
+        console.log(messages);
 
-    //           if (message.content && message.content.startsWith('data:')) {
-    //             console.log("Processing base64 file");
-    //             mimetype = message.content.split(';')[0].split(':')[1];
-    //             filename = `file-${Date.now()}.${mimetype.split('/')[1]}`;
-    //             const buffer = Buffer.from(message.content.split(';base64,').pop(), 'base64');
-    //             stream = Readable.from(buffer);
-    //           }
+        const processedMessages = await Promise.all(
+          messages.map(async (message, index) => {
+            if (message.file) {
+              const { createReadStream, filename, mimetype } = await message.file;
 
-    //           const cloudinaryResponse = await new Promise((resolve, reject) => {
-    //             const uploadStream = cloudinary.v2.uploader.upload_stream(
-    //               { resource_type: 'auto' },
-    //               (error, result) => {
-    //                 if (error) return reject(error);
-    //                 resolve(result);
-    //               }
-    //             );
+              console.log(`Uploading: ${filename}`);
 
-    //             stream.pipe(uploadStream);
-    //           });
+              const cloudinaryResponse = await new Promise((resolve, reject) => {
+                const uploadStream = cloudinary.v2.uploader.upload_stream(
+                  { resource_type: 'auto' },
+                  (error, result) => {
+                    if (error) return reject(error);
+                    resolve(result);
+                  }
+                );
 
-    //           return {
-    //             type: message.type,
-    //             content: cloudinaryResponse.secure_url,
-    //             order: message.order || index + 1,
-    //           };
-    //         }
-            
-    //         return {
-    //           type: message.type,
-    //           content: message.content || '',
-    //           order: message.order || index + 1,
-    //         };
-    //       })
-    //     );
+                createReadStream().pipe(uploadStream);
+              });
 
-    //     const announcement = new AnnouncementModel({
-    //       createdBy,
-    //       messages: processedMessages,
-    //     });
+              return {
+                type: message.type,
+                content: cloudinaryResponse.secure_url,
+                order: message.order || index + 1,
+              };
+            }
 
-    //     // await announcement.save();
+            return {
+              type: message.type,
+              content: message.content || '',
+              order: message.order || index + 1,
+            };
+          })
+        );
 
-    //     return {
-    //       success: true,
-    //       message: 'Announcement created successfully.',
-    //     };
-    //   } catch (error) {
-    //     console.error('Error creating announcement:', error);
-    //     return {
-    //       success: false,
-    //       message: 'Failed to create announcement.',
-    //     };
-    //   }
-    // },
+        const announcement = new AnnouncementModel({
+          createdBy,
+          messages: processedMessages,
+        });
 
-  createAnnouncement : async (_, { createdBy, messages }) => {
-  try {
-    console.log(messages);
+        await announcement.save();
 
-    const processedMessages = await Promise.all(
-      messages.map(async (message, index) => {
-        // If it's a file upload
-        if (message.file) {
-          const { createReadStream, filename, mimetype } = await message.file;
-
-          console.log(`Uploading: ${filename}`);
-
-          const cloudinaryResponse = await new Promise((resolve, reject) => {
-            const uploadStream = cloudinary.v2.uploader.upload_stream(
-              { resource_type: 'auto' },
-              (error, result) => {
-                if (error) return reject(error);
-                resolve(result);
-              }
-            );
-
-            createReadStream().pipe(uploadStream);
-          });
-
-          return {
-            type: message.type,
-            content: cloudinaryResponse.secure_url,
-            order: message.order || index + 1,
-          };
-        }
-
-        // If it's a text message
         return {
-          type: message.type,
-          content: message.content || '',
-          order: message.order || index + 1,
+          success: true,
+          message: 'Announcement created successfully.',
         };
-      })
-    );
-
-    const announcement = new AnnouncementModel({
-      createdBy,
-      messages: processedMessages,
-    });
-
-    await announcement.save(); // Uncomment if needed
-
-    return {
-      success: true,
-      message: 'Announcement created successfully.',
-    };
-  } catch (error) {
-    console.error('Error creating announcement:', error);
-    return {
-      success: false,
-      message: 'Failed to create announcement.',
-    };
-  }
-},
+      } catch (error) {
+        console.error('Error creating announcement:', error);
+        return {
+          success: false,
+          message: 'Failed to create announcement.',
+        };
+      }
+    },
 
     sendMessage: async (_, { senderId, receiverId, content, messageType }) => {
       const newMessage = new MessageModel({
@@ -576,7 +512,7 @@ export const resolvers = {
         if (!pubsub) {
           throw new Error("PubSub instance is undefined.");
         }
-    
+
         if (!activeSubscriptions.has(userId)) {
           activeSubscriptions.set(userId, new Map());
         }
@@ -590,8 +526,8 @@ export const resolvers = {
         console.log("Active subscriptions:", activeSubscriptions);
         const asyncIterator = pubsub.asyncIterator([`FRIEND_REQUEST_UPDATES_${userId}`]);
         asyncIterator.return = () => {
-          removeSubscription(userId,"friendsUpdate",connection);
-          return Promise.resolve({value: undefined, done:true});
+          removeSubscription(userId, "friendsUpdate", connection);
+          return Promise.resolve({ value: undefined, done: true });
         };
         return asyncIterator;
       },
@@ -609,7 +545,7 @@ export const resolvers = {
         ),
     },
 
-    notification : {
+    notification: {
       subscribe: (_, { userId }, { pubsub, connection }) => {
         if (!activeSubscriptions.has(userId)) {
           activeSubscriptions.set(userId, new Map());
