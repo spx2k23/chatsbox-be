@@ -2,12 +2,15 @@ import bcrypt from "bcryptjs";
 import jwt from "jsonwebtoken";
 import cloudinary from 'cloudinary';
 import GraphQLUpload from "graphql-upload/GraphQLUpload.mjs";
+import { Readable } from 'stream';
 import { UserModel } from '../models/User.js';
 import { MessageModel } from "../models/Message.js";
 import { OrganizationModel } from '../models/Organization.js';
 import { NotificationModel } from '../models/Notification.js';
 import { AnnouncementModel } from "../models/Announcements.js";
 import { activeSubscriptions, removeSubscription } from '../server.js';
+import * as dotenv from 'dotenv';
+dotenv.config();
 
 cloudinary.config({
   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -408,66 +411,128 @@ export const resolvers = {
       }
     },
 
-    createAnnouncement: async (_, { createdBy, messages }) => {
-      try {
-        console.log(messages);
-        
-        const processedMessages = await Promise.all(
-          messages.map(async (message, index) => {
-            if (message.file) {
-              console.log(message.file);
-              // Handle file upload
-              const { createReadStream, filename, mimetype } = await message.file;
+    // createAnnouncement: async (_, { createdBy, messages }) => {
+    //   try {
+    //     console.log(messages);
+    //     const processedMessages = await Promise.all(
+    //       messages.map(async (message, index) => {
+    //         if (message.type === 'image') {
+    //           let stream, filename, mimetype;
 
-              const stream = createReadStream();
-              const cloudinaryResponse = await new Promise((resolve, reject) => {
-                const uploadStream = cloudinary.v2.uploader.upload_stream(
-                  { resource_type: 'auto' },
-                  (error, result) => {
-                    if (error) return reject(error);
-                    resolve(result);
-                  }
-                );
+    //           if (message.content && message.content.startsWith('data:')) {
+    //             console.log("Processing base64 file");
+    //             mimetype = message.content.split(';')[0].split(':')[1];
+    //             filename = `file-${Date.now()}.${mimetype.split('/')[1]}`;
+    //             const buffer = Buffer.from(message.content.split(';base64,').pop(), 'base64');
+    //             stream = Readable.from(buffer);
+    //           }
 
-                stream.pipe(uploadStream);
-              });
+    //           const cloudinaryResponse = await new Promise((resolve, reject) => {
+    //             const uploadStream = cloudinary.v2.uploader.upload_stream(
+    //               { resource_type: 'auto' },
+    //               (error, result) => {
+    //                 if (error) return reject(error);
+    //                 resolve(result);
+    //               }
+    //             );
 
-              return {
-                type: message.type,
-                content: cloudinaryResponse.secure_url,
-                order: message.order || index + 1,
-              };
-            }
+    //             stream.pipe(uploadStream);
+    //           });
 
-            // Handle text content
-            return {
-              type: message.type,
-              content: message.content || '',
-              order: message.order || index + 1,
-            };
-          })
-        );
+    //           return {
+    //             type: message.type,
+    //             content: cloudinaryResponse.secure_url,
+    //             order: message.order || index + 1,
+    //           };
+    //         }
+            
+    //         return {
+    //           type: message.type,
+    //           content: message.content || '',
+    //           order: message.order || index + 1,
+    //         };
+    //       })
+    //     );
 
-        // Save to database
-        const announcement = new AnnouncementModel({
-          createdBy,
-          messages: processedMessages,
-        });
+    //     const announcement = new AnnouncementModel({
+    //       createdBy,
+    //       messages: processedMessages,
+    //     });
 
-        await announcement.save();
+    //     // await announcement.save();
 
+    //     return {
+    //       success: true,
+    //       message: 'Announcement created successfully.',
+    //     };
+    //   } catch (error) {
+    //     console.error('Error creating announcement:', error);
+    //     return {
+    //       success: false,
+    //       message: 'Failed to create announcement.',
+    //     };
+    //   }
+    // },
+
+  createAnnouncement : async (_, { createdBy, messages }) => {
+  try {
+    console.log(messages);
+
+    const processedMessages = await Promise.all(
+      messages.map(async (message, index) => {
+        // If it's a file upload
+        if (message.file) {
+          const { createReadStream, filename, mimetype } = await message.file;
+
+          console.log(`Uploading: ${filename}`);
+
+          const cloudinaryResponse = await new Promise((resolve, reject) => {
+            const uploadStream = cloudinary.v2.uploader.upload_stream(
+              { resource_type: 'auto' },
+              (error, result) => {
+                if (error) return reject(error);
+                resolve(result);
+              }
+            );
+
+            createReadStream().pipe(uploadStream);
+          });
+
+          return {
+            type: message.type,
+            content: cloudinaryResponse.secure_url,
+            order: message.order || index + 1,
+          };
+        }
+
+        // If it's a text message
         return {
-          success: true,
-          message: 'Announcement created successfully.',
+          type: message.type,
+          content: message.content || '',
+          order: message.order || index + 1,
         };
-      } catch (error) {
-        console.error('Error creating announcement:', error);
-        return {
-          success: false,
-          message: 'Failed to create announcement.',
-        };
-      }
-    },
+      })
+    );
+
+    const announcement = new AnnouncementModel({
+      createdBy,
+      messages: processedMessages,
+    });
+
+    await announcement.save(); // Uncomment if needed
+
+    return {
+      success: true,
+      message: 'Announcement created successfully.',
+    };
+  } catch (error) {
+    console.error('Error creating announcement:', error);
+    return {
+      success: false,
+      message: 'Failed to create announcement.',
+    };
+  }
+},
 
     sendMessage: async (_, { senderId, receiverId, content, messageType }) => {
       const newMessage = new MessageModel({

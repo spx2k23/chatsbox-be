@@ -38,21 +38,21 @@ export const typeDefs = gql`
     removedFromOrg: Boolean!
   }
 
-  scalar Upload
-
   type Announcement {
     id: ID!
     createdBy: User!
     messages: [AnnouncementMessage!]!
     createdAt: String!
   }
-
+   
   type AnnouncementMessage {
     type: String!
     content: String!
     order: Int!
   }
-
+      
+  scalar Upload
+      
   input MessageInput {
     type: String!
     content: String
